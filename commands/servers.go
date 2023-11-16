@@ -2,7 +2,11 @@ package commands
 
 import "github.com/spf13/cobra"
 
-// New
+// Comand Servers
+//
+// `rye servers`
+//
+// list all the servers
 func NewServersCmd() *cobra.Command {
 	return nil
 }

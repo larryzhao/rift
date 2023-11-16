@@ -10,25 +10,27 @@ package server
 // 	"github.com/larryzhao/rye/v2ray"
 // )
 
-// type TrojanServer struct {
-// 	protocol rye.Protocl
-// 	hostname string
-// 	name     string
-// 	Port     int
-// 	Password string
-// 	Network  *NetworkSettigs
+// type VlessServer struct {
+// 	protocol   rye.Protocl
+// 	name       string
+// 	Address    string
+// 	Port       int
+// 	UserID     string
+// 	Flow       string
+// 	Encryption string
+// 	Network    *NetworkSettigs
 // }
 
-// func NewTrojanServer(protocol rye.Protocl, hostname string, name string) (*TrojanServer, error) {
-// 	return &TrojanServer{
+// func NewVlessServer(protocol rye.Protocl, name string) (*VlessServer, error) {
+// 	return &VlessServer{
 // 		protocol: protocol,
-// 		hostname: hostname,
 // 		name:     name,
-// 		Network:  &NetworkSettigs{},
 // 	}, nil
 // }
 
-// func parseTrojanFromURL(u *url.URL) (*TrojanServer, error) {
+// // parseVlessServerFromURL
+// // vless://31b98cae-da2d-4456-b351-f91838313f0a@108.181.22.55:443?type=tcp&encryption=none&security=reality&flow=xtls-rprx-vision&sni=www.apple.com&pbk=W01B4-7EqJFqY_unAM9SQFnXT7UKjna2yw-y16gVyRE&sid=a7fc4ec1af1cce8f&headerType=none&fp=chrome#%F0%9F%87%BA%F0%9F%87%B8%E7%BE%8E%E5%9B%BD%E9%AB%98%E9%80%9F01
+// func (s *VlessServer) parseVlessFromURL(u url.URL) (*VlessServer, error) {
 // 	protocol, err := rye.ParseProtocl(u.Scheme)
 // 	if err != nil {
 // 		return nil, err
@@ -39,7 +41,7 @@ package server
 // 		name = u.Fragment
 // 	}
 
-// 	server, err := NewTrojanServer(protocol, u.Hostname(), name)
+// 	server, err := NewVlessServer(protocol, name)
 // 	if err != nil {
 // 		return nil, fmt.Errorf("create trojan server err: %w", err)
 // 	}
@@ -48,14 +50,17 @@ package server
 // 	if err != nil {
 // 		return nil, fmt.Errorf("parse port err: %w", err)
 // 	}
-
 // 	server.Port = port
-// 	server.Password = u.User.String()
+// 	server.UserID = u.User.String()
+// 	server.Address = u.Hostname()
 
 // 	transportProtocol, err := rye.ParseTransportProtocol(u.Query().Get("type"))
 // 	if err != nil {
 // 		return nil, err
 // 	}
+
+// 	server.Encryption = u.Query().Get("encryption")
+// 	server.Flow = u.Query().Get("flow")
 
 // 	server.Network.TransportProtocol = transportProtocol
 // 	server.Network.ServerName = u.Query().Get("sni")
@@ -65,25 +70,29 @@ package server
 // 		server.Network.AllowInsecure = true
 // 	}
 
+// 	server.Network.FingerPrint = u.Query().Get("fp")
+// 	server.Network.Security = u.Query().Get("security")
+// 	server.Network.PublicKey = u.Query().Get("publickey")
+// 	server.Network.PublicKey = u.Query().Get("pbk")
 // 	server.Network.Path = u.Query().Get("path")
-// 	server.Network.Security = "tls"
+// 	server.Network.ShortID = u.Query().Get("shortid")
 
 // 	return server, nil
 // }
 
-// func (server *TrojanServer) Hostname() string {
-// 	return server.hostname
+// func (server *VlessServer) Hostname() string {
+// 	return server.Address
 // }
 
-// func (server *TrojanServer) Name() string {
+// func (server *VlessServer) Name() string {
 // 	return server.name
 // }
 
-// func (server *TrojanServer) Protocl() rye.Protocl {
+// func (server *VlessServer) Protocl() rye.Protocl {
 // 	return server.protocol
 // }
 
-// func (server *TrojanServer) ToOutbound() *v2ray.Outbound {
+// func (server *VlessServer) ToOutbound() *v2ray.Outbound {
 // 	outbound := &v2ray.Outbound{
 // 		Protocol:       server.Protocl().String(),
 // 		Tag:            "proxy",
@@ -93,9 +102,20 @@ package server
 
 // 	// Settings
 // 	message, _ := json.Marshal(map[string]interface{}{
-// 		"address":  server.Hostname(),
-// 		"port":     server.Port,
-// 		"password": server.Password,
+// 		"vnext": []map[string]interface{}{
+// 			{
+// 				"address": server.Address,
+// 				"port":    server.Port,
+// 				"users": []map[string]interface{}{
+// 					{
+// 						"id":         server.UserID,
+// 						"flow":       server.Flow,
+// 						"encryption": server.Encryption,
+// 						"level":      0,
+// 					},
+// 				},
+// 			},
+// 		},
 // 	})
 // 	outbound.Settings = (*json.RawMessage)(&message)
 
@@ -120,6 +140,13 @@ package server
 // 		outbound.StreamSettings.TLSSettings = &v2ray.TLSSettings{
 // 			Insecure:   server.Network.AllowInsecure,
 // 			ServerName: server.Network.ServerName,
+// 		}
+// 	case "reality":
+// 		outbound.StreamSettings.RealitySettings = &v2ray.RealitySettings{
+// 			FingerPrint: server.Network.FingerPrint,
+// 			PublicKey:   server.Network.PublicKey,
+// 			ServerName:  server.Network.ServerName,
+// 			ShortID:     server.Network.ShortID,
 // 		}
 // 	default:
 // 		// just do nothing currently

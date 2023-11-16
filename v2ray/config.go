@@ -1,150 +1,151 @@
 package v2ray
 
-// import (
-// 	"fmt"
-// 	"io"
-// 	"os"
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+)
 
-// 	"github.com/larryzhao/rye"
-// 	"github.com/spyzhov/ajson"
-// )
+// Top level Configurations
+// DNS
+// TODO: do DNS
+type DNS struct{}
 
-// type Config struct {
-// 	node *ajson.Node
-// }
+// Inbounds
+type Inbound struct {
+	Listen   string `json:"listen"`
+	Port     int    `json:"port"`
+	Protocol string `json:"protocol"`
+	Settings struct {
+		Auth    string `json:"auth"`
+		Timeout int    `json:"timeout"`
+	} `json:"settings"`
+}
 
-// // LoadConfig loads v2ray JSON configuration from file
-// func LoadConfig(path string) (*Config, error) {
-// 	f, err := os.Open(path)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("open config file err: %w", err)
-// 	}
+// Log
+type Log struct {
+	Access   string `json:"access"`
+	Error    string `json:"error"`
+	Loglevel string `json:"loglevel"`
+}
 
-// 	data, err := io.ReadAll(f)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("read config file err: %w", err)
-// 	}
+// Outbound
+type Mux struct {
+	Enabled     bool `json:"enabled"`
+	Concurrency int  `json:"concurrency"`
+}
 
-// 	n, err := ajson.Unmarshal(data)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+type TLSSettings struct {
+	Insecure   bool   `json:"allowInsecure"`
+	ServerName string `json:"serverName"`
+	// Certs                            []*TLSCertConfig      `json:"certificates"`
+	// ALPN                             *cfgcommon.StringList `json:"alpn"`
+	// EnableSessionResumption          bool                  `json:"enableSessionResumption"`
+	// DisableSystemRoot                bool                  `json:"disableSystemRoot"`
+	// PinnedPeerCertificateChainSha256 *[]string             `json:"pinnedPeerCertificateChainSha256"`
+	// VerifyClientCertificate          bool                  `json:"verifyClientCertificate"`
+}
 
-// 	return &Config{
-// 		node: n,
-// 	}, nil
-// }
+type WSSettings struct {
+	Path                 string            `json:"path"`
+	Headers              map[string]string `json:"headers,omitempty"`
+	AcceptProxyProtocol  bool              `json:"acceptProxyProtocol,omitempty"`
+	MaxEarlyData         int32             `json:"maxEarlyData,omitempty"`
+	UseBrowserForwarding bool              `json:"useBrowserForwarding,omitempty"`
+	EarlyDataHeaderName  string            `json:"earlyDataHeaderName,omitempty"`
+}
 
-// // NewConfig creates a new v2ray Config from template
-// func NewConfig() (*Config, error) {
-// 	return nil, nil
-// }
+type RealitySettings struct {
+	FingerPrint string `json:"fingerprint,omitempty"`
+	PublicKey   string `json:"publicKey,omitempty"`
+	ShortID     string `json:"shortId,omitempty"`
+	ServerName  string `json:"serverName,omitempty"`
+}
 
-// func (conf *Config) UseTrojan(server *rye.TrojanServer) error {
-// 	var err error
+type StreamSettings struct {
+	Network         string           `json:"network"`
+	Security        string           `json:"security"`
+	TLSSettings     *TLSSettings     `json:"tlsSettings,omitempty"`
+	WSSettings      *WSSettings      `json:"wsSettings,omitempty"`
+	RealitySettings *RealitySettings `json:"realitySettings,omitempty"`
+}
 
-// 	// 1. find proxy outbound, and add trojan outbound
-// 	nodes, err := conf.node.JSONPath("")
-// 	if err != nil {
-// 		return fmt.Errorf("get outbounds error: %w", err)
-// 	}
+type Outbound struct {
+	Tag            string           `json:"tag"`
+	Mux            *Mux             `json:"mux"`
+	Protocol       string           `json:"protocol"`
+	Settings       *json.RawMessage `json:"settings"`
+	StreamSettings *StreamSettings  `json:"streamSettings"`
+}
 
-// 	if len(nodes) > 1 {
-// 		return fmt.Errorf("")
-// 	}
-// 	outboundsNode := nodes[0]
+// Routing
+type RoutingSettings struct {
+	DomainStrategy string `json:"domainStrategy"`
+	Rules          []any  `json:"rules"`
+}
 
-// 	outbounds, err := outboundsNode.GetArray()
-// 	if err != nil {
-// 		return fmt.Errorf("wrong outbounds node: %w", err)
-// 	}
+// Config v2ray configuration
+type Config struct {
+	Filepath  string
+	DNS       *DNS        `json:"dns,omitempty"`
+	Inbounds  []*Inbound  `json:"inbounds"`
+	Log       *Log        `json:"log"`
+	Outbounds []*Outbound `json:"outbounds"`
+	Routing   struct {
+		Settings *RoutingSettings `json:"settings"`
+	} `json:"routing"`
+	Transport struct{} `json:"transport"`
+}
 
-// 	for _, outbound := range outbounds {
-// 		tagNode, err := outbound.GetKey("tag")
-// 		if err != nil {
-// 			return fmt.Errorf("")
-// 		}
-// 		if tagNode.MustString() != "proxy" {
-// 			continue
-// 		}
+func ParseJSONConfig(configFile string) (*Config, error) {
+	f, err := os.Open(configFile)
+	if err != nil {
+		return nil, fmt.Errorf("open v2ray config file err: %w", err)
+	}
+	defer f.Close()
 
-// 		err = outbound.Delete()
-// 		if err != nil {
-// 			return fmt.Errorf("remove proxy outbound err: %w", err)
-// 		}
-// 	}
+	bb, err := io.ReadAll(f)
+	if err != nil {
+		return nil, fmt.Errorf("read v2ray config file err: %w", err)
+	}
 
-// 	// 2. add proxy outbound
-// 	newProxyOutbound := ajson.ObjectNode("", map[string]*ajson.Node{
-// 		"mux": ajson.NullNode(""),
-// 		"tag": ajson.StringNode("", "proxy"),
-// 	})
+	var config Config
+	err = json.Unmarshal(bb, &config)
+	if err != nil {
+		return nil, fmt.Errorf("decode v2ray config err: %w", err)
+	}
 
-// 	outboundsNode.AppendArray(newProxyOutbound)
+	config.Filepath = configFile
 
-// 	return nil
-// }
+	return &config, nil
+}
 
-// // type Log struct {
-// // 	Access   string `json:"access"`
-// // 	Error    string `json:"error"`
-// // 	Loglevel string `json:"loglevel"`
-// // }
+func (conf *Config) SetOutbound(proxy string, outbound *Outbound) error {
+	found := -1
+	for idx, config := range conf.Outbounds {
+		if config.Tag == "proxy" {
+			found = idx
+			break
+		}
+	}
 
-// // type Inbound struct {
-// // 	Listen   string           `json:"listen"`
-// // 	Port     string           `json:"port"`
-// // 	Protocol string           `json:"protocol"`
-// // 	Settings *InboundSettings `json:"settings"`
-// // }
+	// not found, let's append
+	if found == -1 {
+		conf.Outbounds = append(conf.Outbounds, outbound)
+		return nil
+	}
 
-// // type InboundSettings struct {
-// // 	Auth    string `json:"auth"`
-// // 	Timeout any    `json:"timeout"`
-// // 	UDP     bool   `json:"udp"`
-// // }
+	conf.Outbounds[found] = outbound
+	return nil
+}
 
-// // type Outbound struct {
-// // 	Tag            string            `json:"tag"`
-// // 	Protocl        string            `json:"protocol"`
-// // 	StreamSettings *StreamSettings   `json:"streamSettings"`
-// // 	Settings       *OutboundSettings `json:"settings"`
-// // }
+func (conf *Config) Save() error {
+	bb, err := json.Marshal(conf)
+	if err != nil {
+		return fmt.Errorf("encode v2ray config file err: %w", err)
+	}
+	fmt.Println(string(bb))
 
-// // type OutboundSettings struct {
-// // 	Vnext   []*Vnext  `json:"vnext,omitempty"`
-// // 	Servers []*Server `json:"servers, omitempty"`
-// // }
-
-// // type Server struct {
-// // 	Address  string `json:"address"`
-// // 	Port     int64  `json:"port"`
-// // 	Password string `json:"password"`
-// // }
-
-// // type Vnext struct {
-// // 	Address string `json:"address"`
-// // 	Port    int64  `json:"port"`
-// // 	Users   []struct {
-// // 		AlterID  string `json:"alterId"`
-// // 		ID       string `json:"id"`
-// // 		Security string `json:"security"`
-// // 	} `json:"users"`
-// // }
-
-// // type TLSSettings struct {
-// // 	ServerName    string `json:"serverName"`
-// // 	AllowInsecure bool   `json:"allowInsecure"`
-// // }
-
-// // type StreamSettings struct {
-// // 	Network     string       `json:"network"`
-// // 	Security    string       `json:"security"`
-// // 	TLSSettings *TLSSettings `json:"tlsSettings,omitempty"`
-// // }
-
-// // type Config struct {
-// // 	Log       *Log        `json:"log"`
-// // 	Inbounds  []*Inbound  `json:"inbounds"`
-// // 	Outbounds []*Outbound `json:"outbound"`
-// // }
+	return os.WriteFile(conf.Filepath, bb, 0644)
+}
