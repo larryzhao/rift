@@ -12,11 +12,6 @@ import (
 	"github.com/larryzhao/rye/xray"
 )
 
-const (
-	PIDFile      = "rye.pid"
-	SettingsFile = "settings.yaml"
-)
-
 type Subscription struct {
 	Name          string    `yaml:"name"`
 	URL           string    `yaml:"url"`
@@ -37,12 +32,20 @@ type Repo struct {
 	PID        int
 }
 
-func settingsFile(repoDir string) string {
-	return path.Join(repoDir, "settings.yaml")
+func (repo *Repo) settingsFile(repoDir string) string {
+	return path.Join(repo.Dir, "settings.yaml")
 }
 
-func xrayConfigFile(repoDir string) string {
-	return path.Join(repoDir, "xray", "config.json")
+func (repo *Repo) XrayConfigFile() string {
+	return path.Join(repo.Dir, "xray", "config.json")
+}
+
+func (repo *Repo) PACFile() string {
+	return path.Join(repo.Dir, "pac.js")
+}
+
+func (repo *Repo) PIDFile() string {
+	return path.Join(repo.Dir, "rye.pid")
 }
 
 func LoadRepo() (*Repo, error) {
@@ -57,12 +60,12 @@ func LoadRepo() (*Repo, error) {
 	repo.Dir = path.Join(u.HomeDir, ".rye")
 
 	// load v2ray config
-	repo.XrayConfig, err = xray.ParseJSONConfig(xrayConfigFile(repo.Dir))
+	repo.XrayConfig, err = xray.ParseJSONConfig(repo.XrayConfigFile())
 	if err != nil {
 		return nil, fmt.Errorf("decode xray config err: %w", err)
 	}
 
-	repo.PID, err = readPID(repo.Dir)
+	repo.PID, err = readPID(repo.PIDFile())
 	if err != nil {
 		return nil, fmt.Errorf("read pid err: %w", err)
 	}
@@ -71,11 +74,11 @@ func LoadRepo() (*Repo, error) {
 }
 
 func (repo *Repo) WritePID(pid int) error {
-	return writePID(repo.Dir, pid)
+	return writePID(repo.PIDFile(), pid)
 }
 
-func readPID(repoDir string) (int, error) {
-	bb, err := os.ReadFile(path.Join(repoDir, PIDFile))
+func readPID(pidFile string) (int, error) {
+	bb, err := os.ReadFile(pidFile)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return 0, nil
@@ -91,8 +94,8 @@ func readPID(repoDir string) (int, error) {
 	return pid, nil
 }
 
-func writePID(repoDir string, pid int) error {
-	return os.WriteFile(path.Join(repoDir, PIDFile), []byte(strconv.Itoa(pid)), 0644)
+func writePID(pidFile string, pid int) error {
+	return os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644)
 }
 
 // type V2RayConfig struct {

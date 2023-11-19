@@ -18,15 +18,19 @@ import (
 )
 
 type Process struct {
-	xrayInstance *core.Instance
-	startCh      chan interface{}
-	stopCh       chan string
+	xrayConfigFile string
+	pacFile        string
+	xrayInstance   *core.Instance
+	startCh        chan interface{}
+	stopCh         chan string
 }
 
-func NewProcess() *Process {
+func NewProcess(xrayConfigFile string, pacFile string) *Process {
 	return &Process{
-		startCh: make(chan interface{}, 2),
-		stopCh:  make(chan string),
+		xrayConfigFile: xrayConfigFile,
+		pacFile:        pacFile,
+		startCh:        make(chan interface{}, 2),
+		stopCh:         make(chan string),
 	}
 }
 
@@ -45,7 +49,7 @@ startloop:
 		case sig := <-p.startCh:
 			switch sig.(type) {
 			case error:
-				return fmt.Errorf("start failed: %w.", sig.(error))
+				return fmt.Errorf("start failed: %w", sig.(error))
 			default:
 				fmt.Println("received signal OK")
 				successes++
@@ -56,18 +60,16 @@ startloop:
 				}
 			}
 		case <-ticker.C:
-			return fmt.Errorf("start failed: timeout.")
+			return fmt.Errorf("start failed: timeout")
 		}
 	}
 
 	sigCh := make(chan os.Signal, 1)
 	defer close(sigCh)
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGQUIT)
-	select {
-	case <-sigCh:
-		p.Stop()
-		return nil
-	}
+	<-sigCh
+	p.Stop()
+	return nil
 }
 
 func (p *Process) Stop() {
@@ -77,8 +79,7 @@ func (p *Process) Stop() {
 
 func (p *Process) startXray() {
 	// TODO: change hardcoded filepath
-	// configArg := cmdarg.Arg{"/Users/larry/.rye/v2ray.json"}
-	f, err := os.Open("/Users/larry/.rye/v2ray.json")
+	f, err := os.Open(p.xrayConfigFile)
 	if err != nil {
 		p.startCh <- err
 		return
@@ -119,12 +120,12 @@ func (p *Process) startXray() {
 
 func (p *Process) startPAC() {
 	server := &http.Server{
-		Addr: ":6061",
+		Addr: ":8080",
 	}
 
 	http.HandleFunc("/pac/proxy.js", func(w http.ResponseWriter, r *http.Request) {
 		// TODO: change hardcoded filepath
-		bb, err := os.ReadFile("/Users/larry/.v2up/pac.js")
+		bb, err := os.ReadFile(p.pacFile)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("read pac file err: " + err.Error()))

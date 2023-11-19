@@ -87,7 +87,7 @@ type RoutingSettings struct {
 
 // Config v2ray configuration
 type Config struct {
-	Filepath  string
+	Filepath  string      `json:"-"`
 	DNS       *DNS        `json:"dns,omitempty"`
 	Inbounds  []*Inbound  `json:"inbounds"`
 	Log       *Log        `json:"log"`

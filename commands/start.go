@@ -1,7 +1,10 @@
 package commands
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
+	"path"
 
 	"github.com/larryzhao/rye/repo"
 	"github.com/spf13/cobra"
@@ -21,11 +24,36 @@ func NewStartCmd() *cobra.Command {
 				return err
 			}
 
-			proc, err := os.StartProcess("/usr/local/bin/rye", []string{}, &os.ProcAttr{Dir: r.Dir})
+			errFile, err := os.OpenFile(path.Join(r.Dir, "error.log"), os.O_RDWR|os.O_APPEND, os.ModeAppend)
 			if err != nil {
 				return err
 			}
-			if err := r.WritePID(proc.Pid); err != nil {
+			defer errFile.Close()
+
+			outFile, err := os.OpenFile(path.Join(r.Dir, "out.log"), os.O_RDWR|os.O_APPEND, os.ModeAppend)
+			if err != nil {
+				return err
+			}
+			defer outFile.Close()
+
+			command := exec.Command("/usr/local/bin/rye", "run")
+			command.Stdout = outFile
+			command.Stderr = errFile
+
+			err = command.Start()
+			if err != nil {
+				panic(err)
+			}
+
+			pid := command.Process.Pid
+			fmt.Printf("pid: %d\n", pid)
+
+			err = command.Process.Release()
+			if err != nil {
+				panic(err)
+			}
+
+			if err := r.WritePID(pid); err != nil {
 				return err
 			}
 
