@@ -41,8 +41,8 @@ func NewConnectCmd() *cobra.Command {
 				return err
 			}
 
-			repo.V2RayConfig.SetOutbound("proxy", outbound)
-			err = repo.V2RayConfig.Save()
+			repo.XrayConfig.SetOutbound("proxy", outbound)
+			err = repo.XrayConfig.Save()
 			if err != nil {
 				return err
 			}

@@ -1,4 +1,4 @@
-package v2ray
+package xray
 
 import (
 	"encoding/json"

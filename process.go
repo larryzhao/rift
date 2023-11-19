@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"runtime"
 	"runtime/debug"
+	"syscall"
 	"time"
 
 	_ "github.com/xtls/xray-core/app/proxyman/inbound"
@@ -28,7 +30,7 @@ func NewProcess() *Process {
 	}
 }
 
-func (p *Process) Start() (int, error) {
+func (p *Process) Start() error {
 	defer close(p.startCh)
 
 	go p.startXray()
@@ -36,24 +38,35 @@ func (p *Process) Start() (int, error) {
 
 	var successes int
 	ticker := time.NewTicker(20 * time.Second)
+
+startloop:
 	for {
 		select {
 		case sig := <-p.startCh:
 			switch sig.(type) {
 			case error:
-				return 0, fmt.Errorf("start failed: %w", sig.(error))
+				return fmt.Errorf("start failed: %w.", sig.(error))
 			default:
 				fmt.Println("received signal OK")
 				successes++
 				if successes == 2 {
 					// start successfully
 					// TODO: update system PAC settings
-					return os.Getpid(), nil
+					break startloop
 				}
 			}
 		case <-ticker.C:
-			return 0, fmt.Errorf("timeout starting process")
+			return fmt.Errorf("start failed: timeout.")
 		}
+	}
+
+	sigCh := make(chan os.Signal, 1)
+	defer close(sigCh)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGQUIT)
+	select {
+	case <-sigCh:
+		p.Stop()
+		return nil
 	}
 }
 

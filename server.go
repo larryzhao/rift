@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/larryzhao/rye/v2ray"
+	"github.com/larryzhao/rye/xray"
 )
 
 type Server struct {
@@ -78,7 +78,7 @@ func ParseServerFromURL(urlString string) (*Server, error) {
 	return server, nil
 }
 
-func (server *Server) ToOutbound() (*v2ray.Outbound, error) {
+func (server *Server) ToOutbound() (*xray.Outbound, error) {
 	switch server.Protocol {
 	case ProtoclVLess:
 		return server.toVlessOutbound()
@@ -87,12 +87,12 @@ func (server *Server) ToOutbound() (*v2ray.Outbound, error) {
 	}
 }
 
-func (server *Server) toVlessOutbound() (*v2ray.Outbound, error) {
-	outbound := &v2ray.Outbound{
+func (server *Server) toVlessOutbound() (*xray.Outbound, error) {
+	outbound := &xray.Outbound{
 		Protocol:       server.Protocol.String(),
 		Tag:            "proxy",
 		Mux:            nil,
-		StreamSettings: &v2ray.StreamSettings{},
+		StreamSettings: &xray.StreamSettings{},
 	}
 
 	// Settings
@@ -120,7 +120,7 @@ func (server *Server) toVlessOutbound() (*v2ray.Outbound, error) {
 
 	switch server.TransportProtocol {
 	case TransportProtocolWS:
-		outbound.StreamSettings.WSSettings = &v2ray.WSSettings{
+		outbound.StreamSettings.WSSettings = &xray.WSSettings{
 			Path: server.Path,
 			Headers: map[string]string{
 				"host": server.Host,
@@ -132,12 +132,12 @@ func (server *Server) toVlessOutbound() (*v2ray.Outbound, error) {
 
 	switch server.Security {
 	case "tls":
-		outbound.StreamSettings.TLSSettings = &v2ray.TLSSettings{
+		outbound.StreamSettings.TLSSettings = &xray.TLSSettings{
 			Insecure:   server.AllowInsecure,
 			ServerName: server.ServerName,
 		}
 	case "reality":
-		outbound.StreamSettings.RealitySettings = &v2ray.RealitySettings{
+		outbound.StreamSettings.RealitySettings = &xray.RealitySettings{
 			FingerPrint: server.FingerPrint,
 			PublicKey:   server.PublicKey,
 			ServerName:  server.ServerName,

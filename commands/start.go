@@ -1,9 +1,9 @@
 package commands
 
 import (
-	"fmt"
+	"os"
 
-	"github.com/larryzhao/rye"
+	"github.com/larryzhao/rye/repo"
 	"github.com/spf13/cobra"
 )
 
@@ -16,19 +16,19 @@ func NewStartCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "start",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// repo, err := repo.LoadRepo()
-			// if err != nil {
-			// 	return err
-			// }
-
-			process := rye.NewProcess()
-			pid, err := process.Start()
+			r, err := repo.LoadRepo()
 			if err != nil {
 				return err
 			}
-			fmt.Println(pid)
 
-			select {}
+			proc, err := os.StartProcess("/usr/local/bin/rye", []string{}, &os.ProcAttr{Dir: r.Dir})
+			if err != nil {
+				return err
+			}
+			if err := r.WritePID(proc.Pid); err != nil {
+				return err
+			}
+
 			return nil
 		},
 	}
