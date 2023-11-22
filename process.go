@@ -18,6 +18,7 @@ import (
 	"github.com/xtls/xray-core/infra/conf/serial"
 )
 
+// TODO: refactor this to runner
 type Process struct {
 	xrayConfigFile string
 	pacFile        string
