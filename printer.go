@@ -1,0 +1,5 @@
+package rye
+
+func Print() {
+
+}

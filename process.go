@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"runtime"
 	"runtime/debug"
@@ -55,6 +56,10 @@ startloop:
 				successes++
 				if successes == 2 {
 					// start successfully
+					err := p.enableSystemPACSettings("http://127.0.0.1:60061/pac/proxy.js")
+					if err != nil {
+						return err
+					}
 					// TODO: update system PAC settings
 					break startloop
 				}
@@ -120,7 +125,7 @@ func (p *Process) startXray() {
 
 func (p *Process) startPAC() {
 	server := &http.Server{
-		Addr: ":8080",
+		Addr: ":60061",
 	}
 
 	http.HandleFunc("/pac/proxy.js", func(w http.ResponseWriter, r *http.Request) {
@@ -149,4 +154,22 @@ func (p *Process) startPAC() {
 			return
 		}
 	}
+}
+
+func (p *Process) enableSystemPACSettings(pacURL string) error {
+	command := exec.Command("networksetup", "-setautoproxyurl", "Wi-Fi", pacURL)
+	err := command.Start()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *Process) disableSystemPACSettings() error {
+	command := exec.Command("networksetup", "-setautoproxyurl", "Wi-Fi", "off")
+	err := command.Start()
+	if err != nil {
+		return err
+	}
+	return nil
 }
