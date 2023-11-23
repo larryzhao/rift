@@ -22,7 +22,7 @@ func NewStopCmd() *cobra.Command {
 				return err
 			}
 
-			command := exec.Command("networksetup", "-setautoproxyurl", "Wi-Fi", "off")
+			command := exec.Command("networksetup", "-setautoproxystate", "Wi-Fi", "off")
 			err = command.Start()
 			if err != nil {
 				return err
