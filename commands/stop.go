@@ -2,8 +2,8 @@ package commands
 
 import (
 	"os/exec"
-	"syscall"
 
+	"github.com/larryzhao/rye"
 	"github.com/larryzhao/rye/repo"
 	"github.com/spf13/cobra"
 )
@@ -17,18 +17,19 @@ func NewStopCmd() *cobra.Command {
 				return err
 			}
 
-			err = syscall.Kill(r.PID, syscall.SIGTERM)
+			// stop runner
+			err = rye.StopRunner(r.PID)
 			if err != nil {
 				return err
 			}
 
+			// unset proxy
 			command := exec.Command("networksetup", "-setautoproxystate", "Wi-Fi", "off")
 			err = command.Start()
 			if err != nil {
 				return err
 			}
 
-			// TODO: check if correctly stopped
 			return nil
 		},
 	}

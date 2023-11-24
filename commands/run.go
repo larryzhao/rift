@@ -23,8 +23,8 @@ func NewRunCmd() *cobra.Command {
 				return err
 			}
 
-			process := rye.NewProcess(repo.XrayConfigFile(), repo.PACFile())
-			err = process.Start()
+			runner := rye.NewRunner(repo.XrayConfigFile(), repo.PACFile())
+			err = runner.Run()
 			if err != nil {
 				fmt.Println(err.Error())
 				os.Exit(1)
