@@ -1,6 +1,9 @@
 package commands
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/larryzhao/rye"
+	"github.com/spf13/cobra"
+)
 
 // rye start
 // rye stop
@@ -12,11 +15,23 @@ import "github.com/spf13/cobra"
 func NewRootCmd() *cobra.Command {
 	cmd := cobra.Command{
 		Use: "rye",
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			v, err := cmd.Flags().GetBool("verbose")
+			if err != nil {
+				return err
+			}
+
+			rye.PrintVerbosly = v
+			return nil
+		},
 	}
 
 	cmd.AddCommand(NewConnectCmd())
 	cmd.AddCommand(NewStartCmd())
 	cmd.AddCommand(NewStopCmd())
+	cmd.AddCommand(NewStatusCmd())
 	cmd.AddCommand(NewRunCmd())
+
+	cmd.PersistentFlags().BoolP("verbose", "v", false, "print verbosely")
 	return &cmd
 }

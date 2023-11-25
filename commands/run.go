@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/larryzhao/rye"
@@ -13,7 +12,7 @@ import (
 //
 // `rye run`
 //
-// rye main process
+// start rye runner
 func NewRunCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "run",
@@ -26,7 +25,7 @@ func NewRunCmd() *cobra.Command {
 			runner := rye.NewRunner(repo.XrayConfigFile(), repo.PACFile())
 			err = runner.Run()
 			if err != nil {
-				fmt.Println(err.Error())
+				rye.PrintError(err.Error())
 				os.Exit(1)
 			}
 

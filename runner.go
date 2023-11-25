@@ -19,7 +19,6 @@ import (
 	"github.com/xtls/xray-core/infra/conf/serial"
 )
 
-// TODO: refactor this to runner
 type Runner struct {
 	xrayConfigFile string
 	pacFile        string
@@ -40,11 +39,13 @@ func NewRunner(xrayConfigFile string, pacFile string) *Runner {
 }
 
 func StopRunner(pid int) error {
+	PrintVerbose("send SIGTERM to runner %d", pid)
 	err := syscall.Kill(pid, syscall.SIGTERM)
 	if err != nil {
 		return err
 	}
 
+	PrintVerbose("wait 10 seconds for shutting down...")
 	ticker := time.NewTicker(10 * time.Second)
 	for {
 		select {
@@ -86,11 +87,13 @@ startloop:
 				fmt.Println("received signal OK")
 				successes++
 				if successes == 2 {
-					// start successfully
 					err := p.enableSystemPACSettings("http://127.0.0.1:60061/pac/proxy.js")
 					if err != nil {
-						return err
+						return fmt.Errorf("setting system PAC err: %w", err)
 					}
+					PrintVerbose("set system PAC to %s OK", "http://127.0.0.1:60061/pac/proxy.js")
+					PrintInfo("now running")
+
 					// TODO: update system PAC settings
 					break startloop
 				}

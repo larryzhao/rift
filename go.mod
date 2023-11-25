@@ -3,6 +3,7 @@ module github.com/larryzhao/rye
 go 1.21.4
 
 require (
+	github.com/fatih/color v1.16.0
 	github.com/spf13/cobra v1.7.0
 	github.com/xtls/xray-core v1.8.5
 	gopkg.in/yaml.v3 v3.0.1
@@ -23,6 +24,8 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/klauspost/compress v1.17.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.6 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/onsi/ginkgo/v2 v2.13.1 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pires/go-proxyproto v0.7.0 // indirect
