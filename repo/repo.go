@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -9,30 +10,34 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/larryzhao/rye"
 	"github.com/larryzhao/rye/xray"
+	"gopkg.in/yaml.v3"
 )
 
-type Subscription struct {
-	Name          string    `yaml:"name"`
-	URL           string    `yaml:"url"`
-	AddedAt       time.Time `yaml:"added_at"`
-	LastUpdatedAt time.Time `yaml:"last_updated_at"`
-	SkipUpdate    bool      `yaml:"skip_update"`
+type Log struct {
+	Location string `yaml:"location"`
 }
 
 type Settings struct {
-	Log           string         `yaml:"log"`
-	Subscriptions []Subscription `yaml:"subscriptions"`
+	Log           *Log                `yaml:"log"`
+	Subscriptions []*rye.Subscription `yaml:"subscriptions"`
+}
+
+type Server struct {
+	Group  string      `yaml:"group"`
+	Server *rye.Server `yaml:"server"`
 }
 
 type Repo struct {
 	Dir        string
-	Settings   *Settings
 	XrayConfig *xray.Config
+	Settings   *Settings
+	Servers    []*Server
 	PID        int
 }
 
-func (repo *Repo) settingsFile(repoDir string) string {
+func (repo *Repo) settingsFile() string {
 	return path.Join(repo.Dir, "settings.yaml")
 }
 
@@ -48,6 +53,73 @@ func (repo *Repo) PIDFile() string {
 	return path.Join(repo.Dir, "rye.pid")
 }
 
+func (repo *Repo) UpdateSubscriptions() error {
+	for _, sub := range repo.Settings.Subscriptions {
+		ctx := context.Background()
+		servers, err := sub.Fetch(ctx)
+		if err != nil {
+			rye.PrintError("fetch subscription %s err: %s", sub.Name, err.Error())
+			continue
+		}
+
+		// replace servers
+		err = repo.UpdateServersByGroup(sub.Name, servers)
+		if err != nil {
+			rye.PrintError("update servers from %s err: %s", sub.Name, err.Error())
+			continue
+		}
+
+		sub.LastUpdatedAt = time.Now()
+		rye.PrintInfo("subscription: %s updated", sub.Name)
+	}
+
+	// save settings
+	bb, err := yaml.Marshal(repo.Settings)
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(repo.settingsFile(), bb, 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (repo *Repo) UpdateServersByGroup(group string, servers []*rye.Server) error {
+	var newServers []*Server
+
+	for _, srv := range repo.Servers {
+		if srv.Group == group {
+			continue
+		}
+		newServers = append(newServers, srv)
+	}
+
+	for _, srv := range servers {
+		newServers = append(newServers, &Server{
+			Group:  group,
+			Server: srv,
+		})
+	}
+
+	repo.Servers = newServers
+
+	// save servers.yaml
+	bb, err := yaml.Marshal(repo.Servers)
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(path.Join(repo.Dir, "servers.yaml"), bb, 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func LoadRepo() (*Repo, error) {
 	var err error
 
@@ -59,15 +131,37 @@ func LoadRepo() (*Repo, error) {
 	}
 	repo.Dir = path.Join(u.HomeDir, ".rye")
 
-	// load v2ray config
+	// load xray config
 	repo.XrayConfig, err = xray.ParseJSONConfig(repo.XrayConfigFile())
 	if err != nil {
 		return nil, fmt.Errorf("decode xray config err: %w", err)
 	}
 
+	// read current pid
 	repo.PID, err = readPID(repo.PIDFile())
 	if err != nil {
 		return nil, fmt.Errorf("read pid err: %w", err)
+	}
+
+	// load settings
+	bb, err := os.ReadFile(repo.settingsFile())
+	if err != nil {
+		return nil, fmt.Errorf("read settings.yaml err: %w", err)
+	}
+	repo.Settings = &Settings{}
+	err = yaml.Unmarshal(bb, repo.Settings)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal settings.yaml err: %w", err)
+	}
+
+	// load servers
+	bb, err = os.ReadFile(path.Join(repo.Dir, "servers.yaml"))
+	if err != nil {
+		return nil, fmt.Errorf("read servers.yaml err: %w", err)
+	}
+	err = yaml.Unmarshal(bb, &repo.Servers)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal servers.yaml err: %w", err)
 	}
 
 	return repo, nil
@@ -97,58 +191,3 @@ func readPID(pidFile string) (int, error) {
 func writePID(pidFile string, pid int) error {
 	return os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644)
 }
-
-// type V2RayConfig struct {
-// 	ConfigJSONFile string
-// 	config         *v4.Config
-// }
-
-// func NewV2RayConfig(configFile string) (*V2RayConfig, error) {
-// 	f, err := os.Open(configFile)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("open file %s err: %w", configFile, err)
-// 	}
-
-// 	conf := &V2RayConfig{
-// 		ConfigJSONFile: configFile,
-// 	}
-// 	conf.config, err = serial.DecodeJSONConfig(f)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("decode v2ray config err: %w", err)
-// 	}
-
-// 	return conf, nil
-// }
-
-// func (conf *V2RayConfig) SetOutbound(proxy string, outbound v4.OutboundDetourConfig) error {
-// 	found := -1
-// 	for idx, config := range conf.config.OutboundConfigs {
-// 		if config.Tag == "proxy" {
-// 			found = idx
-// 			break
-// 		}
-// 	}
-
-// 	// not found, let's append
-// 	if found == -1 {
-// 		conf.config.OutboundConfigs = append(conf.config.OutboundConfigs, outbound)
-// 		return nil
-// 	}
-
-// 	conf.config.OutboundConfigs[found] = outbound
-// 	return nil
-// }
-
-// func (conf *V2RayConfig) Save() error {
-// 	bb, err := json.Marshal(conf.config)
-// 	if err != nil {
-// 		return fmt.Errorf("marshal v2ray config err: %w", err)
-// 	}
-
-// 	err = os.WriteFile(conf.ConfigJSONFile, bb, os.FileMode(0644))
-// 	if err != nil {
-// 		return fmt.Errorf("write v2ray config err: %w", err)
-// 	}
-
-// 	return nil
-// }

@@ -10,23 +10,23 @@ import (
 )
 
 type Server struct {
-	Protocol   Protocl
-	Name       string
-	Host       string
-	Port       int
-	User       string
-	Flow       string
-	Encryption string
+	Protocol   Protocl `yaml:"protocol"`
+	Name       string  `yaml:"name"`
+	Host       string  `yaml:"host"`
+	Port       int     `yaml:"port"`
+	User       string  `yaml:"user"`
+	Flow       string  `yaml:"flow,omitempty"`
+	Encryption string  `yaml:"encryption,omitempty"`
 
 	// Network transport releated
-	TransportProtocol TransportProtocol
-	ServerName        string
-	Path              string
-	AllowInsecure     bool
-	Security          string
-	FingerPrint       string
-	PublicKey         string
-	ShortID           string
+	TransportProtocol TransportProtocol `yaml:"transport_protocol"`
+	ServerName        string            `yaml:"server_name"`
+	Path              string            `yaml:"path"`
+	AllowInsecure     bool              `yaml:"allow_insecure"`
+	Security          string            `yaml:"security,omitempty"`
+	FingerPrint       string            `yaml:"fingerprint,omitempty"`
+	PublicKey         string            `yaml:"public_key,omitempty"`
+	ShortID           string            `yaml:"short_id,omitempty"`
 }
 
 func ParseServerFromURL(urlString string) (*Server, error) {

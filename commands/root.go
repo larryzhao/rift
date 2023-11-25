@@ -31,6 +31,7 @@ func NewRootCmd() *cobra.Command {
 	cmd.AddCommand(NewStopCmd())
 	cmd.AddCommand(NewStatusCmd())
 	cmd.AddCommand(NewRunCmd())
+	cmd.AddCommand(NewSubscriptionsCmd())
 
 	cmd.PersistentFlags().BoolP("verbose", "v", false, "print verbosely")
 	return &cmd
