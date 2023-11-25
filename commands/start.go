@@ -1,11 +1,11 @@
 package commands
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path"
 
+	"github.com/larryzhao/rye"
 	"github.com/larryzhao/rye/repo"
 	"github.com/spf13/cobra"
 )
@@ -46,7 +46,7 @@ func NewStartCmd() *cobra.Command {
 			}
 
 			pid := command.Process.Pid
-			fmt.Printf("pid: %d\n", pid)
+			rye.PrintInfo("started")
 
 			err = command.Process.Release()
 			if err != nil {
