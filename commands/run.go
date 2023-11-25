@@ -22,7 +22,13 @@ func NewRunCmd() *cobra.Command {
 				return err
 			}
 
-			runner := rye.NewRunner(repo.XrayConfigFile(), repo.PACFile())
+			logFile, err := os.OpenFile("/Users/larry/.rye/rye.log", os.O_RDWR|os.O_APPEND, 0644)
+			if err != nil {
+				return err
+			}
+			defer logFile.Close()
+
+			runner := rye.NewRunner(repo.XrayConfigFile(), repo.PACFile(), logFile)
 			err = runner.Run()
 			if err != nil {
 				rye.PrintError(err.Error())

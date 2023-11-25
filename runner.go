@@ -3,6 +3,8 @@ package rye
 import (
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -24,17 +26,15 @@ type Runner struct {
 	pacFile        string
 	xrayInstance   *core.Instance
 	startCh        chan interface{}
-	stopCh         chan string
-	wg             *sync.WaitGroup
+	logger         *slog.Logger
 }
 
-func NewRunner(xrayConfigFile string, pacFile string) *Runner {
+func NewRunner(xrayConfigFile string, pacFile string, logFile io.Writer) *Runner {
 	return &Runner{
 		xrayConfigFile: xrayConfigFile,
 		pacFile:        pacFile,
 		startCh:        make(chan interface{}, 2),
-		stopCh:         make(chan string),
-		wg:             &sync.WaitGroup{},
+		logger:         slog.New(slog.NewJSONHandler(logFile, nil)),
 	}
 }
 
@@ -53,10 +53,12 @@ func StopRunner(pid int) error {
 			killErr := syscall.Kill(pid, syscall.Signal(0))
 			if killErr != nil {
 				// process does not exist, so shutdown is successful
+				PrintVerbose("shutdown successful")
 				return nil
 			}
 
 			// otherwise the process is still running, so we go another round after 1 sec.
+			PrintVerbose("process %d still exists, wait another sec...", pid)
 			time.Sleep(1 * time.Second)
 			continue
 		case <-ticker.C:
@@ -68,10 +70,15 @@ func StopRunner(pid int) error {
 func (p *Runner) Run() error {
 	defer close(p.startCh)
 
-	go p.startXray()
-	p.wg.Add(1)
-	go p.startPAC()
-	p.wg.Add(1)
+	wg := &sync.WaitGroup{}
+
+	ctxXray, cancelXray := context.WithCancel(context.Background())
+	go p.startXray(ctxXray, wg)
+	wg.Add(1)
+
+	ctxPAC, cancelPAC := context.WithCancel(context.Background())
+	go p.startPAC(ctxPAC, wg)
+	wg.Add(1)
 
 	var successes int
 	ticker := time.NewTicker(20 * time.Second)
@@ -87,14 +94,6 @@ startloop:
 				fmt.Println("received signal OK")
 				successes++
 				if successes == 2 {
-					err := p.enableSystemPACSettings("http://127.0.0.1:60061/pac/proxy.js")
-					if err != nil {
-						return fmt.Errorf("setting system PAC err: %w", err)
-					}
-					PrintVerbose("set system PAC to %s OK", "http://127.0.0.1:60061/pac/proxy.js")
-					PrintInfo("now running")
-
-					// TODO: update system PAC settings
 					break startloop
 				}
 			}
@@ -108,18 +107,18 @@ startloop:
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGQUIT)
 	<-sigCh
 
-	p.shutdown()
-	p.wg.Wait()
+	p.logger.Info("SIGTERM received")
+	cancelXray()
+	cancelPAC()
+	wg.Wait()
+
+	p.logger.Info("runner shutdown ok")
+
 	return nil
 }
 
-func (p *Runner) shutdown() {
-	p.stopCh <- "xray"
-	p.stopCh <- "pac"
-}
-
-func (p *Runner) startXray() {
-	defer p.wg.Done()
+func (p *Runner) startXray(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
 
 	// TODO: change hardcoded filepath
 	f, err := os.Open(p.xrayConfigFile)
@@ -150,19 +149,13 @@ func (p *Runner) startXray() {
 	debug.FreeOSMemory()
 
 	// start ok
-	fmt.Println("send signal OK - xray")
 	p.startCh <- struct{}{}
-
-	for {
-		sig := <-p.stopCh
-		if sig == "xray" {
-			return
-		}
-	}
+	<-ctx.Done()
+	p.logger.Info("xray shutdown received")
 }
 
-func (p *Runner) startPAC() {
-	defer p.wg.Done()
+func (p *Runner) startPAC(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
 
 	server := &http.Server{
 		Addr: ":60061",
@@ -182,21 +175,27 @@ func (p *Runner) startPAC() {
 	})
 
 	go server.ListenAndServe()
+	defer server.Shutdown(context.Background())
+	p.logger.Info("PAC server started")
+
+	err := setSystemPAC("http://127.0.0.1:60061/pac/proxy.js")
+	if err != nil {
+		p.startCh <- err
+		return
+	}
+	p.logger.Info("system PAC set")
 
 	// start ok
-	fmt.Println("send signal OK - PAC")
 	p.startCh <- struct{}{}
+	<-ctx.Done()
 
-	for {
-		sig := <-p.stopCh
-		if sig == "pac" {
-			server.Shutdown(context.Background())
-			return
-		}
-	}
+	server.Shutdown(context.Background())
+	p.logger.Info("PAC server shutdown")
+	unsetSystemPAC()
+	p.logger.Info("system PAC unset")
 }
 
-func (p *Runner) enableSystemPACSettings(pacURL string) error {
+func setSystemPAC(pacURL string) error {
 	command := exec.Command("networksetup", "-setautoproxyurl", "Wi-Fi", pacURL)
 	err := command.Start()
 	if err != nil {
@@ -205,8 +204,9 @@ func (p *Runner) enableSystemPACSettings(pacURL string) error {
 	return nil
 }
 
-func (p *Runner) disableSystemPACSettings() error {
-	command := exec.Command("networksetup", "-setautoproxyurl", "Wi-Fi", "off")
+func unsetSystemPAC() error {
+	// unset proxy
+	command := exec.Command("networksetup", "-setautoproxystate", "Wi-Fi", "off")
 	err := command.Start()
 	if err != nil {
 		return err
