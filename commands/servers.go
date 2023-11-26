@@ -167,7 +167,7 @@ func NewServersCmd() *cobra.Command {
 					return
 				}
 
-				m.onSelectMessage = rye.SprintfInfo("connected to server: %s", selectedServer.Server.Name)
+				m.onSelectMessage = rye.SprintfInfo("switch to server: %s", selectedServer.Server.Name)
 			}
 
 			if _, err := tea.NewProgram(&m).Run(); err != nil {

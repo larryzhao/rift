@@ -23,13 +23,13 @@ func PrintlnError(format string, args ...interface{}) {
 }
 
 func SprintfInfo(format string, args ...interface{}) string {
-	return aurora.Sprintf(aurora.Green("•"), fmt.Sprintf(format, args...))
+	return aurora.Sprintf("%s %s", aurora.Green("•"), fmt.Sprintf(format, args...))
 }
 
 func SprintfVerbose(format string, args ...interface{}) string {
-	return aurora.Sprintf(aurora.Cyan("•"), fmt.Sprintf(format, args...))
+	return aurora.Sprintf("%s %s", aurora.Cyan("•"), fmt.Sprintf(format, args...))
 }
 
 func SprintfError(format string, args ...interface{}) string {
-	return aurora.Sprintf(aurora.Red("•"), fmt.Sprintf(format, args...))
+	return aurora.Sprintf("%s %s", aurora.Red("•"), fmt.Sprintf(format, args...))
 }
