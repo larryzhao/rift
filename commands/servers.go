@@ -1,8 +1,12 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"log/slog"
+	"os"
+	"path"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -56,6 +60,8 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 
 type model struct {
 	list     list.Model
+	logger   *slog.Logger
+	onSelect func(ctx context.Context, item *item)
 	choice   string
 	quitting bool
 }
@@ -78,9 +84,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "enter":
 			i, ok := m.list.SelectedItem().(item)
-			rye.PrintInfo("item selected: %d", i.Index)
 			if ok {
 				m.choice = string(i.Name)
+				m.onSelect(context.Background(), &i)
 			}
 			return m, tea.Quit
 		}
@@ -115,6 +121,14 @@ func NewServersCmd() *cobra.Command {
 				return err
 			}
 
+			cliLog, err := os.OpenFile(path.Join(r.Dir, "cli.log"), os.O_RDWR|os.O_APPEND, 0644)
+			if err != nil {
+				return err
+			}
+
+			logger := slog.New(slog.NewJSONHandler(cliLog, nil))
+			logger.Info("servers command entered")
+
 			var items []list.Item
 			for idx, srv := range r.Servers {
 				items = append(items, item{
@@ -133,7 +147,47 @@ func NewServersCmd() *cobra.Command {
 			l.Styles.PaginationStyle = paginationStyle
 			l.Styles.HelpStyle = helpStyle
 
-			m := model{list: l}
+			m := model{list: l, logger: logger}
+			m.onSelect = func(ctx context.Context, item *item) {
+				selectedServer := r.Servers[item.Index]
+
+				outbound, err := selectedServer.Server.ToOutbound()
+				if err != nil {
+					logger.Info(fmt.Sprintf("parse server #%d: %s to outbound err: %s", item.Index, selectedServer.Server.Name, err.Error()))
+					rye.PrintError("parse server #%d: %s to outbound err: %s", item.Index, selectedServer.Server.Name, err.Error())
+					return
+				}
+
+				r.XrayConfig.SetOutbound("proxy", outbound)
+				err = r.XrayConfig.Save()
+				if err != nil {
+					logger.Info(fmt.Sprintf("save xray/config.json err: %s", err.Error()))
+					rye.PrintError("save xray/config.json err: %s", err.Error())
+					return
+				}
+
+				// stop runner
+				err = rye.StopRunner(r.PID)
+				if err != nil {
+					logger.Info(fmt.Sprintf("stop runner err: %s", err.Error()))
+					rye.PrintError("stop runner err: %s", err.Error())
+					return
+				}
+				logger.Info("runner stopped")
+
+				// start runner again
+				pid, err := rye.StartRunner()
+				if err != nil {
+					logger.Info(fmt.Sprintf("start runner err: %s", err.Error()))
+					return
+				}
+				logger.Info(fmt.Sprintf("runner started: %d", pid))
+				if err := r.WritePID(pid); err != nil {
+					logger.Info(fmt.Sprintf("write pid err: %s", err.Error()))
+					return
+				}
+				logger.Info("runner pid written")
+			}
 
 			if _, err := tea.NewProgram(m).Run(); err != nil {
 				fmt.Println("Error running program:", err)

@@ -38,35 +38,6 @@ func NewRunner(xrayConfigFile string, pacFile string, logFile io.Writer) *Runner
 	}
 }
 
-func StopRunner(pid int) error {
-	PrintVerbose("send SIGTERM to runner %d", pid)
-	err := syscall.Kill(pid, syscall.SIGTERM)
-	if err != nil {
-		return err
-	}
-
-	PrintVerbose("wait 10 seconds for shutting down...")
-	ticker := time.NewTicker(10 * time.Second)
-	for {
-		select {
-		default:
-			killErr := syscall.Kill(pid, syscall.Signal(0))
-			if killErr != nil {
-				// process does not exist, so shutdown is successful
-				PrintVerbose("shutdown successful")
-				return nil
-			}
-
-			// otherwise the process is still running, so we go another round after 1 sec.
-			PrintVerbose("process %d still exists, wait another sec...", pid)
-			time.Sleep(1 * time.Second)
-			continue
-		case <-ticker.C:
-			return fmt.Errorf("stop runner timeout")
-		}
-	}
-}
-
 func (p *Runner) Run() error {
 	defer close(p.startCh)
 
@@ -212,4 +183,54 @@ func unsetSystemPAC() error {
 		return err
 	}
 	return nil
+}
+
+func StartRunner() (int, error) {
+	var err error
+
+	command := exec.Command("/usr/local/bin/rye", "run")
+	err = command.Start()
+	if err != nil {
+		PrintError("start runner err: %s", err.Error())
+		return 0, err
+	}
+
+	pid := command.Process.Pid
+
+	err = command.Process.Release()
+	if err != nil {
+		PrintError("detach runner err: %s", err.Error())
+		return 0, err
+	}
+
+	return pid, nil
+}
+
+func StopRunner(pid int) error {
+	PrintVerbose("send SIGTERM to runner %d", pid)
+	err := syscall.Kill(pid, syscall.SIGTERM)
+	if err != nil {
+		return err
+	}
+
+	PrintVerbose("wait 10 seconds for shutting down...")
+	ticker := time.NewTicker(10 * time.Second)
+	for {
+		select {
+		default:
+			killErr := syscall.Kill(pid, syscall.Signal(0))
+			if killErr != nil {
+				// process does not exist, so shutdown is successful
+				PrintVerbose("shutdown successful")
+				return nil
+			}
+
+			// otherwise the process is still running, so we go another round after 1 sec.
+			PrintVerbose("process %d still exists, wait another sec...", pid)
+			time.Sleep(1 * time.Second)
+			continue
+		case <-ticker.C:
+			return fmt.Errorf("stop runner timeout")
+		}
+	}
 }
