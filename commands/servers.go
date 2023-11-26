@@ -169,7 +169,7 @@ func NewServersCmd() *cobra.Command {
 				// stop runner
 				err = rye.StopRunner(r.PID)
 				if err != nil {
-					logger.Info(fmt.Sprintf("stop runner err: %s", err.Error()))
+					logger.Info(fmt.Sprintf("stop runner err: %s", err.Error()), slog.Int("runner_pid", r.PID))
 					rye.PrintError("stop runner err: %s", err.Error())
 					return
 				}
