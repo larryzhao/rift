@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/larryzhao/rye"
 	"github.com/larryzhao/rye/commands"
 	"github.com/spf13/cobra"
 )
@@ -22,5 +23,8 @@ func main() {
 		},
 	})
 
-	root.Execute()
+	err := root.Execute()
+	if err != nil {
+		rye.PrintlnError(err.Error())
+	}
 }

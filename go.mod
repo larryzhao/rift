@@ -7,6 +7,7 @@ require (
 	github.com/charmbracelet/bubbletea v0.24.2
 	github.com/charmbracelet/lipgloss v0.9.1
 	github.com/fatih/color v1.16.0
+	github.com/logrusorgru/aurora/v4 v4.0.0
 	github.com/spf13/cobra v1.7.0
 	github.com/xtls/xray-core v1.8.5
 	gopkg.in/yaml.v3 v3.0.1

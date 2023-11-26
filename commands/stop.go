@@ -1,10 +1,10 @@
 package commands
 
 import (
+	"fmt"
 	"os/exec"
 
 	"github.com/larryzhao/rye"
-	"github.com/larryzhao/rye/repo"
 	"github.com/spf13/cobra"
 )
 
@@ -12,13 +12,10 @@ func NewStopCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "stop",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r, err := repo.LoadRepo()
-			if err != nil {
-				return err
-			}
+			repo, _ := cmd.Context().Value(rye.CtxKeyRepo).(*rye.Repo)
 
 			// stop runner
-			err = rye.StopRunner(r.PID)
+			err := rye.StopRunner(repo.PID)
 			if err != nil {
 				return err
 			}
@@ -27,9 +24,10 @@ func NewStopCmd() *cobra.Command {
 			command := exec.Command("networksetup", "-setautoproxystate", "Wi-Fi", "off")
 			err = command.Start()
 			if err != nil {
-				return err
+				return fmt.Errorf("turn off system proxy err: %w", err)
 			}
 
+			rye.PrintlnInfo("stopped")
 			return nil
 		},
 	}

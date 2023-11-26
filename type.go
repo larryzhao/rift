@@ -52,3 +52,9 @@ func ParseTransportProtocol(s string) (TransportProtocol, error) {
 		return TransportProtocolUnknown, fmt.Errorf("unknown transport protocol: %s", s)
 	}
 }
+
+type CtxKey int
+
+const (
+	CtxKeyRepo CtxKey = iota + 1
+)

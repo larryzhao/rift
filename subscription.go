@@ -42,7 +42,7 @@ func (sub *Subscription) Fetch(ctx context.Context) ([]*Server, error) {
 		url := scanner.Text()
 		server, err := ParseServerFromURL(url)
 		if err != nil {
-			PrintVerbose("parse server url %s err: %s", url, err.Error())
+			PrintlnVerbose("parse server url %s err: %s", url, err.Error())
 			continue
 		}
 		servers = append(servers, server)

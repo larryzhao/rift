@@ -145,7 +145,6 @@ func (conf *Config) Save() error {
 	if err != nil {
 		return fmt.Errorf("encode v2ray config file err: %w", err)
 	}
-	fmt.Println(string(bb))
 
 	return os.WriteFile(conf.Filepath, bb, 0644)
 }

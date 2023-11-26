@@ -3,21 +3,33 @@ package rye
 import (
 	"fmt"
 
-	"github.com/fatih/color"
+	"github.com/logrusorgru/aurora/v4"
 )
 
 var PrintVerbosly bool = false
 
-func PrintInfo(format string, args ...interface{}) {
-	fmt.Printf("%s %s\n", color.GreenString("•"), fmt.Sprintf(format, args...))
+func PrintlnInfo(format string, args ...interface{}) {
+	fmt.Println(aurora.Green("•"), fmt.Sprintf(format, args...))
 }
 
-func PrintVerbose(format string, args ...interface{}) {
+func PrintlnVerbose(format string, args ...interface{}) {
 	if PrintVerbosly {
-		fmt.Printf("%s %s\n", color.CyanString("•"), fmt.Sprintf(format, args...))
+		fmt.Println(aurora.Cyan("•"), fmt.Sprintf(format, args...))
 	}
 }
 
-func PrintError(format string, args ...interface{}) {
-	fmt.Printf("%s %s\n", color.RedString("•"), fmt.Sprintf(format, args...))
+func PrintlnError(format string, args ...interface{}) {
+	fmt.Println(aurora.Red("•"), fmt.Sprintf(format, args...))
+}
+
+func SprintfInfo(format string, args ...interface{}) string {
+	return aurora.Sprintf(aurora.Green("•"), fmt.Sprintf(format, args...))
+}
+
+func SprintfVerbose(format string, args ...interface{}) string {
+	return aurora.Sprintf(aurora.Cyan("•"), fmt.Sprintf(format, args...))
+}
+
+func SprintfError(format string, args ...interface{}) string {
+	return aurora.Sprintf(aurora.Red("•"), fmt.Sprintf(format, args...))
 }

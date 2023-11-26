@@ -1,10 +1,7 @@
 package commands
 
 import (
-	"fmt"
-
 	"github.com/larryzhao/rye"
-	"github.com/larryzhao/rye/repo"
 	"github.com/spf13/cobra"
 )
 
@@ -17,42 +14,30 @@ func NewConnectCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "connect",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			repo, _ := cmd.Context().Value(rye.CtxKeyRepo).(*rye.Repo)
+
 			url := args[0]
-
-			repo, err := repo.LoadRepo()
-			if err != nil {
-				return err
-			}
-
-			// ctx := repo.NewContext(repo)
-			// fmt.Println(ctx)
-			// server, err := server.ParseURL(url)
-			// if err != nil {
-			// 	return err
-			// }
 
 			server, err := rye.ParseServerFromURL(url)
 			if err != nil {
+				rye.PrintlnError("parse server error: %s", err.Error())
 				return err
 			}
 
 			outbound, err := server.ToOutbound()
 			if err != nil {
+				rye.PrintlnError("build outbound from server err: %s", err.Error())
 				return err
 			}
 
 			repo.XrayConfig.SetOutbound("proxy", outbound)
 			err = repo.XrayConfig.Save()
 			if err != nil {
+				rye.PrintlnError("update xray/config.json err: %s", err.Error())
 				return err
 			}
 
-			fmt.Printf("server: %v", server)
-
-			// server, err := rye.NewServer(url)
-			// if err != nil {
-			// 	return err
-			// }
+			rye.PrintlnInfo("xray config updated")
 			return nil
 		},
 	}

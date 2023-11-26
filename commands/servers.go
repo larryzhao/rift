@@ -4,16 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
-	"os"
-	"path"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/larryzhao/rye"
-	"github.com/larryzhao/rye/repo"
 	"github.com/spf13/cobra"
 )
 
@@ -59,18 +55,18 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 }
 
 type model struct {
-	list     list.Model
-	logger   *slog.Logger
-	onSelect func(ctx context.Context, item *item)
-	choice   string
-	quitting bool
+	list            list.Model
+	onSelect        func(ctx context.Context, item *item)
+	onSelectMessage string
+	choice          string
+	quitting        bool
 }
 
-func (m model) Init() tea.Cmd {
+func (m *model) Init() tea.Cmd {
 	return nil
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.list.SetWidth(msg.Width)
@@ -97,9 +93,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m model) View() string {
+func (m *model) View() string {
 	if m.choice != "" {
-		return ""
+		return quitTextStyle.Render(m.onSelectMessage)
 	}
 	if m.quitting {
 		return ""
@@ -116,21 +112,10 @@ func NewServersCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "servers",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r, err := repo.LoadRepo()
-			if err != nil {
-				return err
-			}
-
-			cliLog, err := os.OpenFile(path.Join(r.Dir, "cli.log"), os.O_RDWR|os.O_APPEND, 0644)
-			if err != nil {
-				return err
-			}
-
-			logger := slog.New(slog.NewJSONHandler(cliLog, nil))
-			logger.Info("servers command entered")
+			repo, _ := cmd.Context().Value(rye.CtxKeyRepo).(*rye.Repo)
 
 			var items []list.Item
-			for idx, srv := range r.Servers {
+			for idx, srv := range repo.Servers {
 				items = append(items, item{
 					Index: idx,
 					Name:  srv.Server.Name,
@@ -140,58 +125,53 @@ func NewServersCmd() *cobra.Command {
 			const defaultWidth = 20
 
 			l := list.New(items, itemDelegate{}, defaultWidth, listHeight)
-			l.Title = "What do you want for dinner?"
+			l.Title = "Choose a server to connect to..."
 			l.SetShowStatusBar(false)
 			l.SetFilteringEnabled(false)
 			l.Styles.Title = titleStyle
 			l.Styles.PaginationStyle = paginationStyle
 			l.Styles.HelpStyle = helpStyle
 
-			m := model{list: l, logger: logger}
+			m := model{list: l}
 			m.onSelect = func(ctx context.Context, item *item) {
-				selectedServer := r.Servers[item.Index]
+				selectedServer := repo.Servers[item.Index]
 
 				outbound, err := selectedServer.Server.ToOutbound()
 				if err != nil {
-					logger.Info(fmt.Sprintf("parse server #%d: %s to outbound err: %s", item.Index, selectedServer.Server.Name, err.Error()))
-					rye.PrintError("parse server #%d: %s to outbound err: %s", item.Index, selectedServer.Server.Name, err.Error())
+					m.onSelectMessage = rye.SprintfError("parse server #%d: %s to outbound err: %s", item.Index, selectedServer.Server.Name, err.Error())
 					return
 				}
 
-				r.XrayConfig.SetOutbound("proxy", outbound)
-				err = r.XrayConfig.Save()
+				repo.XrayConfig.SetOutbound("proxy", outbound)
+				err = repo.XrayConfig.Save()
 				if err != nil {
-					logger.Info(fmt.Sprintf("save xray/config.json err: %s", err.Error()))
-					rye.PrintError("save xray/config.json err: %s", err.Error())
+					m.onSelectMessage = rye.SprintfError("save xray/config.json err: %s", err.Error())
 					return
 				}
 
 				// stop runner
-				err = rye.StopRunner(r.PID)
+				err = rye.StopRunner(repo.PID)
 				if err != nil {
-					logger.Info(fmt.Sprintf("stop runner err: %s", err.Error()), slog.Int("runner_pid", r.PID))
-					rye.PrintError("stop runner err: %s", err.Error())
+					m.onSelectMessage = rye.SprintfError("stop runner err: %s", err.Error())
 					return
 				}
-				logger.Info("runner stopped")
 
 				// start runner again
 				pid, err := rye.StartRunner()
 				if err != nil {
-					logger.Info(fmt.Sprintf("start runner err: %s", err.Error()))
+					m.onSelectMessage = rye.SprintfError("start runner err: %s", err.Error())
 					return
 				}
-				logger.Info(fmt.Sprintf("runner started: %d", pid))
-				if err := r.WritePID(pid); err != nil {
-					logger.Info(fmt.Sprintf("write pid err: %s", err.Error()))
+				if err := repo.WriteRunnerPID(pid); err != nil {
+					m.onSelectMessage = rye.SprintfError("write pid err: %s", err.Error())
 					return
 				}
-				logger.Info("runner pid written")
+
+				m.onSelectMessage = rye.SprintfInfo("connected to server: %s", selectedServer.Server.Name)
 			}
 
-			if _, err := tea.NewProgram(m).Run(); err != nil {
-				fmt.Println("Error running program:", err)
-				return err
+			if _, err := tea.NewProgram(&m).Run(); err != nil {
+				return fmt.Errorf("list servers err: %w", err)
 			}
 
 			return nil
