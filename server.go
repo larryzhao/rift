@@ -21,8 +21,8 @@ type Server struct {
 	// Network transport releated
 	TransportProtocol TransportProtocol `yaml:"transport_protocol"`
 	ServerName        string            `yaml:"server_name"`
-	Path              string            `yaml:"path"`
-	AllowInsecure     bool              `yaml:"allow_insecure"`
+	Path              string            `yaml:"path,omitempty"`
+	AllowInsecure     bool              `yaml:"allow_insecure,omitempty"`
 	Security          string            `yaml:"security,omitempty"`
 	FingerPrint       string            `yaml:"fingerprint,omitempty"`
 	PublicKey         string            `yaml:"public_key,omitempty"`
