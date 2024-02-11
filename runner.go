@@ -200,6 +200,7 @@ func StartRunner() (int, error) {
 	command := exec.Command("/usr/local/bin/rye", "run")
 	err = command.Start()
 	if err != nil {
+		PrintlnVerbose("start runner err: %s", err.Error())
 		return 0, fmt.Errorf("start runner err: %w", err)
 	}
 
@@ -208,6 +209,7 @@ func StartRunner() (int, error) {
 	// detach
 	err = command.Process.Release()
 	if err != nil {
+		PrintlnVerbose("detach runner err: %s", err.Error())
 		return 0, fmt.Errorf("detach runner err: %w", err)
 	}
 

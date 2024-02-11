@@ -22,10 +22,10 @@ func NewStartCmd() *cobra.Command {
 			}
 
 			repo, _ := cmd.Context().Value(rye.CtxKeyRepo).(*rye.Repo)
-			if err := repo.WriteRunnerPID(pid); err != nil {
-				return fmt.Errorf("update runner pid err: %w", err)
+			repo.Status.PID = pid
+			if err := repo.SaveStatus(); err != nil {
+				return fmt.Errorf("update runner status err: %w", err)
 			}
-
 			rye.PrintlnInfo("started")
 			return nil
 		},

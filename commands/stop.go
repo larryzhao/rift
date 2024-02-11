@@ -15,7 +15,7 @@ func NewStopCmd() *cobra.Command {
 			repo, _ := cmd.Context().Value(rye.CtxKeyRepo).(*rye.Repo)
 
 			// stop runner
-			err := rye.StopRunner(repo.PID)
+			err := rye.StopRunner(repo.Status.PID)
 			if err != nil {
 				return err
 			}

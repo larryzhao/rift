@@ -150,7 +150,7 @@ func NewServersCmd() *cobra.Command {
 				}
 
 				// stop runner
-				err = rye.StopRunner(repo.PID)
+				err = rye.StopRunner(repo.Status.PID)
 				if err != nil {
 					m.onSelectMessage = rye.SprintfError("stop runner err: %s", err.Error())
 					return
@@ -162,11 +162,12 @@ func NewServersCmd() *cobra.Command {
 					m.onSelectMessage = rye.SprintfError("start runner err: %s", err.Error())
 					return
 				}
-				if err := repo.WriteRunnerPID(pid); err != nil {
-					m.onSelectMessage = rye.SprintfError("write pid err: %s", err.Error())
-					return
+				repo.Status.PID = pid
+				repo.Status.ServerGroup = selectedServer.Group
+				repo.Status.ServerName = selectedServer.Server.Name
+				if err := repo.SaveStatus(); err != nil {
+					m.onSelectMessage = rye.SprintfError("update runner status err: %s", err.Error())
 				}
-
 				m.onSelectMessage = rye.SprintfInfo("switch to server: %s", selectedServer.Server.Name)
 			}
 

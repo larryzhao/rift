@@ -2,12 +2,10 @@ package rye
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/user"
 	"path"
-	"strconv"
 	"time"
 
 	"github.com/larryzhao/rye/xray"
@@ -33,7 +31,7 @@ type Repo struct {
 	XrayConfig *xray.Config
 	Settings   *Settings
 	Servers    []*RepoServer
-	PID        int
+	Status     *RunnerStatus
 }
 
 func (repo *Repo) settingsFile() string {
@@ -54,6 +52,10 @@ func (repo *Repo) PACFile() string {
 
 func (repo *Repo) RunnerPIDFile() string {
 	return path.Join(repo.Dir, "runner.pid")
+}
+
+func (repo *Repo) RunnerFile() string {
+	return path.Join(repo.Dir, "runner")
 }
 
 func (repo *Repo) UpdateSubscriptions() ([]*Subscription, error) {
@@ -143,10 +145,11 @@ func LoadRepo() (*Repo, error) {
 		return nil, fmt.Errorf("decode xray config err: %w", err)
 	}
 
-	// read current pid
-	repo.PID, err = readPID(repo.RunnerPIDFile())
+	// load runner status
+	repo.Status = &RunnerStatus{}
+	err = repo.Status.Load(repo.RunnerFile())
 	if err != nil {
-		return nil, fmt.Errorf("read pid err: %w", err)
+		return nil, err
 	}
 
 	// load settings
@@ -173,27 +176,31 @@ func LoadRepo() (*Repo, error) {
 	return repo, nil
 }
 
-func (repo *Repo) WriteRunnerPID(pid int) error {
-	return writePID(repo.RunnerPIDFile(), pid)
+func (repo *Repo) SaveStatus() error {
+	return repo.Status.Save(repo.RunnerFile())
 }
 
-func readPID(pidFile string) (int, error) {
-	bb, err := os.ReadFile(pidFile)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return 0, nil
-		}
-		return 0, err
-	}
+// func (repo *Repo) WriteRunnerPID(pid int) error {
+// 	return writePID(repo.RunnerPIDFile(), pid)
+// }
 
-	pid, err := strconv.Atoi(string(bb))
-	if err != nil {
-		return 0, nil
-	}
+// func readPID(pidFile string) (int, error) {
+// 	bb, err := os.ReadFile(pidFile)
+// 	if err != nil {
+// 		if errors.Is(err, os.ErrNotExist) {
+// 			return 0, nil
+// 		}
+// 		return 0, err
+// 	}
 
-	return pid, nil
-}
+// 	pid, err := strconv.Atoi(string(bb))
+// 	if err != nil {
+// 		return 0, nil
+// 	}
 
-func writePID(pidFile string, pid int) error {
-	return os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644)
-}
+// 	return pid, nil
+// }
+
+// func writePID(pidFile string, pid int) error {
+// 	return os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644)
+// }
