@@ -31,7 +31,7 @@ type Repo struct {
 	XrayConfig *xray.Config
 	Settings   *Settings
 	Servers    []*RepoServer
-	Status     *RunnerStatus
+	Status     *Status
 }
 
 func (repo *Repo) settingsFile() string {
@@ -42,20 +42,24 @@ func (repo *Repo) RunnerLogFile() string {
 	return path.Join(repo.Dir, "runner.log")
 }
 
+func (repo *Repo) HysteriaConfigFile() string {
+	return path.Join(repo.Dir, "hysteria2", "config.yaml")
+}
+
 func (repo *Repo) XrayConfigFile() string {
 	return path.Join(repo.Dir, "xray", "config.json")
 }
 
 func (repo *Repo) PACFile() string {
-	return path.Join(repo.Dir, "pac.js")
+	return path.Join(repo.Dir, "pac", "pac.js")
 }
 
-func (repo *Repo) RunnerPIDFile() string {
-	return path.Join(repo.Dir, "runner.pid")
-}
+// func (repo *Repo) RunnerPIDFile() string {
+// 	return path.Join(repo.Dir, "runner.pid")
+// }
 
-func (repo *Repo) RunnerFile() string {
-	return path.Join(repo.Dir, "runner")
+func (repo *Repo) StatusFile() string {
+	return path.Join(repo.Dir, "status.json")
 }
 
 func (repo *Repo) UpdateSubscriptions() ([]*Subscription, error) {
@@ -133,11 +137,15 @@ func LoadRepo() (*Repo, error) {
 
 	repo := &Repo{}
 
-	u, err := user.Current()
-	if err != nil {
-		return nil, fmt.Errorf("get user's home directory err: %s", err.Error())
+	repo.Dir = os.Getenv("REPO_DIR")
+
+	if repo.Dir == "" {
+		u, err := user.Current()
+		if err != nil {
+			return nil, fmt.Errorf("get user's home directory err: %s", err.Error())
+		}
+		repo.Dir = path.Join(u.HomeDir, ".rye")
 	}
-	repo.Dir = path.Join(u.HomeDir, ".rye")
 
 	// load xray config
 	repo.XrayConfig, err = xray.ParseJSONConfig(repo.XrayConfigFile())
@@ -146,8 +154,8 @@ func LoadRepo() (*Repo, error) {
 	}
 
 	// load runner status
-	repo.Status = &RunnerStatus{}
-	err = repo.Status.Load(repo.RunnerFile())
+	repo.Status = &Status{}
+	err = repo.Status.Load(repo.StatusFile())
 	if err != nil {
 		return nil, err
 	}
@@ -177,30 +185,5 @@ func LoadRepo() (*Repo, error) {
 }
 
 func (repo *Repo) SaveStatus() error {
-	return repo.Status.Save(repo.RunnerFile())
+	return repo.Status.Save(repo.StatusFile())
 }
-
-// func (repo *Repo) WriteRunnerPID(pid int) error {
-// 	return writePID(repo.RunnerPIDFile(), pid)
-// }
-
-// func readPID(pidFile string) (int, error) {
-// 	bb, err := os.ReadFile(pidFile)
-// 	if err != nil {
-// 		if errors.Is(err, os.ErrNotExist) {
-// 			return 0, nil
-// 		}
-// 		return 0, err
-// 	}
-
-// 	pid, err := strconv.Atoi(string(bb))
-// 	if err != nil {
-// 		return 0, nil
-// 	}
-
-// 	return pid, nil
-// }
-
-// func writePID(pidFile string, pid int) error {
-// 	return os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644)
-// }

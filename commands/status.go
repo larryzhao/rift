@@ -10,13 +10,13 @@ func NewStatusCmd() *cobra.Command {
 		Use: "status",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			repo, _ := cmd.Context().Value(rye.CtxKeyRepo).(*rye.Repo)
-			ok, err := repo.Status.IsRunnerRunning()
+			ok, err := repo.Status.IsProxyRunning()
 			if ok {
-				rye.PrintlnInfo("xray running, connecting to %s %s", repo.Status.ServerGroup, repo.Status.ServerName)
+				rye.PrintlnInfo("proxy running, connecting to %s %s", repo.Status.ServerGroup, repo.Status.ServerName)
 			} else if err != nil {
-				rye.PrintlnError("xray not running %s", err.Error())
+				rye.PrintlnError("proxy not running %s", err.Error())
 			} else {
-				rye.PrintlnError("xray not running")
+				rye.PrintlnError("proxy not running")
 			}
 
 			ok, err = repo.Status.IsPACServerRunning()

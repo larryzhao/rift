@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/larryzhao/rye"
+	"github.com/larryzhao/rye/hysteria2"
+	"github.com/larryzhao/rye/pac"
 	"github.com/spf13/cobra"
 )
 
@@ -16,17 +18,45 @@ func NewStartCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "start",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pid, err := rye.StartRunner()
+			repo, _ := cmd.Context().Value(rye.CtxKeyRepo).(*rye.Repo)
+
+			ok, err := repo.Status.IsProxyRunning()
+			if err != nil {
+				return fmt.Errorf("check if proxy is running err: %w", err)
+			}
+			if !ok {
+				switch repo.Status.Protocl {
+				case rye.ProtoclHysteria2:
+					runner := hysteria2.NewRunner("/opt/homebrew/bin/hysteria", repo.HysteriaConfigFile())
+					pid, err := runner.Run()
+					if err != nil {
+						return fmt.Errorf("start hysteria2 err: %w", err)
+					}
+
+					repo.Status.UpdateRunningProcess("proxy", pid)
+					err = repo.SaveStatus()
+					if err != nil {
+						return fmt.Errorf("save status err: %w", err)
+					}
+				}
+			}
+
+			ok, err = repo.Status.IsPACServerRunning()
 			if err != nil {
 				return err
 			}
-
-			repo, _ := cmd.Context().Value(rye.CtxKeyRepo).(*rye.Repo)
-			repo.Status.PID = pid
-			if err := repo.SaveStatus(); err != nil {
-				return fmt.Errorf("update runner status err: %w", err)
+			if !ok {
+				runner := pac.NewRunner()
+				pid, err := runner.Run()
+				if err != nil {
+					return err
+				}
+				repo.Status.UpdateRunningProcess("pac", pid)
+				err = repo.SaveStatus()
+				if err != nil {
+					return err
+				}
 			}
-			rye.PrintlnInfo("started")
 			return nil
 		},
 	}

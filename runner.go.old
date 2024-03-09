@@ -14,10 +14,13 @@ import (
 	"syscall"
 	"time"
 
+	// hysteriaclient "github.com/apernet/hysteria/client"
+	// hysteriacore "github.com/apernet/hysteria/core"
 	_ "github.com/xtls/xray-core/app/proxyman/inbound"
 	_ "github.com/xtls/xray-core/app/proxyman/outbound"
 	core "github.com/xtls/xray-core/core"
 	"github.com/xtls/xray-core/infra/conf/serial"
+	"gopkg.in/yaml.v3"
 )
 
 type Runner struct {
@@ -95,10 +98,64 @@ startloop:
 	return nil
 }
 
+func (p *Runner) startHysteria(ctx context.Context, wg *sync.WaitGroup, configFile string) {
+	defer wg.Done()
+
+	configContent, err := os.ReadFile(configFile)
+	if err != nil {
+		p.startCh <- err
+		return
+	}
+
+	var conf hysteriaclient.Config
+	err = yaml.Unmarshal(configContent, &conf)
+	if err != nil {
+		p.startCh <- err
+		return
+	}
+
+	c, err := hysteriacore.NewReconnectableClient(
+		func() (*hysteriacore.Config, error) {
+			return nil, nil
+		},
+		func(hysteriacore.Client, *hysteriacore.HandshakeInfo, int) {
+			return nil, nil, 0
+		},
+		false,
+	)
+	fmt.Printf("%v, %v", c, err)
+
+	// xrayConfig, err := serial.LoadJSONConfig(f)
+	// if err != nil {
+	// 	p.startCh <- err
+	// 	return
+	// }
+
+	// p.xrayInstance, err = core.New(xrayConfig)
+	// if err != nil {
+	// 	p.startCh <- err
+	// 	return
+	// }
+
+	// if err := p.xrayInstance.Start(); err != nil {
+	// 	p.startCh <- err
+	// 	return
+	// }
+	// defer p.xrayInstance.Close()
+
+	// runtime.GC()
+	// debug.FreeOSMemory()
+
+	// // start ok
+	// p.startCh <- struct{}{}
+	// <-ctx.Done()
+
+	// p.logger.Info("xray shutdown")
+}
+
 func (p *Runner) startXray(ctx context.Context, wg *sync.WaitGroup, configFile string) {
 	defer wg.Done()
 
-	// TODO: change hardcoded filepath
 	f, err := os.Open(configFile)
 	if err != nil {
 		p.startCh <- err

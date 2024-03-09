@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/larryzhao/rye"
+	"github.com/larryzhao/rye/hysteria2"
 	"github.com/spf13/cobra"
 )
 
@@ -136,38 +138,89 @@ func NewServersCmd() *cobra.Command {
 			m.onSelect = func(ctx context.Context, item *item) {
 				selectedServer := repo.Servers[item.Index]
 
-				outbound, err := selectedServer.Server.ToOutbound()
+				var runner rye.Runnable
+
+				switch selectedServer.Server.Protocol {
+				case rye.ProtoclHysteria2:
+					confData, err := hysteria2.ToConfig(selectedServer.Server)
+					if err != nil {
+						m.onSelectMessage = rye.SprintfError("convert to hysteria2 config err: %s", err.Error())
+						return
+					}
+
+					err = os.WriteFile(repo.HysteriaConfigFile(), confData, 0644)
+					if err != nil {
+						m.onSelectMessage = rye.SprintfError("write hysteria config file err: %s", err.Error())
+						return
+					}
+
+					runner = hysteria2.NewRunner("/opt/homebrew/bin/hysteria", repo.HysteriaConfigFile())
+				}
+
+				ok, err := repo.Status.IsProxyRunning()
 				if err != nil {
-					m.onSelectMessage = rye.SprintfError("parse server #%d: %s to outbound err: %s", item.Index, selectedServer.Server.Name, err.Error())
+					m.onSelectMessage = rye.SprintfError("check if proxy is running err: %s", err.Error())
+					return
+				}
+				if ok {
+					pid := repo.Status.PIDByKind("proxy")
+					err = rye.Stop(pid)
+					if err != nil {
+						m.onSelectMessage = rye.SprintfError("stop proxy %d err: %s", pid, err.Error())
+						return
+					}
+
+					pid, err = runner.Run()
+					if err != nil {
+						m.onSelectMessage = rye.SprintfError("start proxy %s err: %s", selectedServer.Server.Protocol.String(), err.Error())
+						return
+					}
+
+					repo.Status.ServerGroup = selectedServer.Group
+					repo.Status.ServerName = selectedServer.Server.ServerName
+					repo.Status.Protocl = selectedServer.Server.Protocol
+					repo.Status.UpdateRunningProcess("proxy", pid)
+					err = repo.SaveStatus()
+					if err != nil {
+						m.onSelectMessage = rye.SprintfError("save status file err: %s", err.Error())
+						return
+					}
 					return
 				}
 
-				repo.XrayConfig.SetOutbound("proxy", outbound)
-				err = repo.XrayConfig.Save()
-				if err != nil {
-					m.onSelectMessage = rye.SprintfError("save xray/config.json err: %s", err.Error())
-					return
-				}
+				// outbound, err := selectedServer.Server.ToOutbound()
+				// if err != nil {
+				// 	m.onSelectMessage = rye.SprintfError("parse server #%d: %s to outbound err: %s", item.Index, selectedServer.Server.Name, err.Error())
+				// 	return
+				// }
+
+				// repo.XrayConfig.SetOutbound("proxy", outbound)
+				// err = repo.XrayConfig.Save()
+				// if err != nil {
+				// 	m.onSelectMessage = rye.SprintfError("save xray/config.json err: %s", err.Error())
+				// 	return
+				// }
 
 				// stop runner
-				err = rye.StopRunner(repo.Status.PID)
-				if err != nil {
-					m.onSelectMessage = rye.SprintfError("stop runner err: %s", err.Error())
-					return
-				}
+				// err = rye.StopRunner(repo.Status.PID)
+				// if err != nil {
+				// 	m.onSelectMessage = rye.SprintfError("stop runner err: %s", err.Error())
+				// 	return
+				// }
 
-				// start runner again
-				pid, err := rye.StartRunner()
-				if err != nil {
-					m.onSelectMessage = rye.SprintfError("start runner err: %s", err.Error())
-					return
-				}
-				repo.Status.PID = pid
-				repo.Status.ServerGroup = selectedServer.Group
-				repo.Status.ServerName = selectedServer.Server.Name
-				if err := repo.SaveStatus(); err != nil {
-					m.onSelectMessage = rye.SprintfError("update runner status err: %s", err.Error())
-				}
+				// // start runner again
+				// pid, err := rye.StartRunner()
+				// if err != nil {
+				// 	m.onSelectMessage = rye.SprintfError("start runner err: %s", err.Error())
+				// 	return
+				// }
+				// repo.Status.PID = pid
+				// repo.Status.ServerGroup = selectedServer.Group
+				// repo.Status.ServerName = selectedServer.Server.Name
+				// repo.Status.Protocl = selectedServer.Server.Protocol
+				// if err := repo.SaveStatus(); err != nil {
+				// 	m.onSelectMessage = rye.SprintfError("update runner status err: %s", err.Error())
+				// }
 				m.onSelectMessage = rye.SprintfInfo("switch to server: %s", selectedServer.Server.Name)
 			}
 

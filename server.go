@@ -19,7 +19,7 @@ type Server struct {
 	Encryption string  `yaml:"encryption,omitempty"`
 
 	// Network transport releated
-	TransportProtocol TransportProtocol `yaml:"transport_protocol"`
+	TransportProtocol TransportProtocol `yaml:"transport_protocol,omitempty"`
 	ServerName        string            `yaml:"server_name"`
 	Path              string            `yaml:"path,omitempty"`
 	AllowInsecure     bool              `yaml:"allow_insecure,omitempty"`
@@ -55,10 +55,13 @@ func ParseServerFromURL(urlString string) (*Server, error) {
 	server.User = u.User.String()
 	server.Host = u.Hostname()
 
-	server.TransportProtocol, err = ParseTransportProtocol(u.Query().Get("type"))
-	if err != nil {
-		return nil, err
+	if server.Protocol != ProtoclHysteria2 {
+		server.TransportProtocol, err = ParseTransportProtocol(u.Query().Get("type"))
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	server.Encryption = u.Query().Get("encryption")
 	server.Flow = u.Query().Get("flow")
 
