@@ -120,7 +120,7 @@ func NewServersCmd() *cobra.Command {
 			for idx, srv := range repo.Servers {
 				items = append(items, item{
 					Index: idx,
-					Name:  srv.Server.Name,
+					Name:  fmt.Sprintf("%s %s", srv.Server.Protocol.String(), srv.Server.Name),
 				})
 			}
 
