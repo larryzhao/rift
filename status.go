@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"regexp"
 	"syscall"
 	"time"
 )
@@ -63,10 +64,12 @@ func (status *Status) IsProxySet() (bool, error) {
 		return false, err
 	}
 
-	if string(bb) == "http://127.0.0.1:60061/pac/proxy.js" {
+	reg := regexp.MustCompile(`URL: (.*)`)
+	matches := reg.FindStringSubmatch(string(bb))
+
+	if len(matches) > 0 && matches[1] == "http://127.0.0.1:60061/pac/proxy.js" {
 		return true, nil
 	}
-
 	return false, nil
 }
 

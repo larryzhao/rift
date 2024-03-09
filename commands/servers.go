@@ -177,7 +177,7 @@ func NewServersCmd() *cobra.Command {
 					}
 
 					repo.Status.ServerGroup = selectedServer.Group
-					repo.Status.ServerName = selectedServer.Server.ServerName
+					repo.Status.ServerName = selectedServer.Server.Name
 					repo.Status.Protocl = selectedServer.Server.Protocol
 					repo.Status.UpdateRunningProcess("proxy", pid)
 					err = repo.SaveStatus()
