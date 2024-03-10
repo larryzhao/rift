@@ -2,6 +2,8 @@ package rye
 
 import (
 	"fmt"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 type Protocl string
@@ -16,6 +18,32 @@ const (
 
 func (p Protocl) String() string {
 	return string(p)
+}
+
+func (p Protocl) ShortName() string {
+	switch p {
+	case ProtoclVLess:
+		return "VL"
+	case ProtoclTrojan:
+		return "TR"
+	case ProtoclHysteria2:
+		return "HY"
+	default:
+		panic(fmt.Sprintf("unknown protocol: %s", p.String()))
+	}
+}
+
+func (p Protocl) Style() lipgloss.Style {
+	switch p {
+	case ProtoclVLess:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#e95c55")).Bold(true)
+	case ProtoclTrojan:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#237eb3")).Bold(true)
+	case ProtoclHysteria2:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#3a687f")).Bold(true)
+	default:
+		panic(fmt.Sprintf("unknown protocol: %s", p.String()))
+	}
 }
 
 func ParseProtocl(s string) (Protocl, error) {
