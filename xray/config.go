@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/larryzhao/rye"
 )
 
 // Top level Configurations
@@ -147,4 +149,76 @@ func (conf *Config) Save() error {
 	}
 
 	return os.WriteFile(conf.Filepath, bb, 0644)
+}
+
+func toOutbound(server *rye.Server) (*Outbound, error) {
+	switch server.Protocol {
+	case rye.ProtoclVLess:
+		return toVlessOutbound(server)
+	default:
+		return nil, fmt.Errorf("unknown protocol %s", server.Protocol.String())
+	}
+}
+
+func toVlessOutbound(server *rye.Server) (*Outbound, error) {
+	outbound := &Outbound{
+		Protocol:       server.Protocol.String(),
+		Tag:            "proxy",
+		Mux:            nil,
+		StreamSettings: &StreamSettings{},
+	}
+
+	// Settings
+	message, _ := json.Marshal(map[string]interface{}{
+		"vnext": []map[string]interface{}{
+			{
+				"address": server.Host,
+				"port":    server.Port,
+				"users": []map[string]interface{}{
+					{
+						"id":         server.User,
+						"flow":       server.Flow,
+						"encryption": server.Encryption,
+						"level":      0,
+					},
+				},
+			},
+		},
+	})
+	outbound.Settings = (*json.RawMessage)(&message)
+
+	// StreamSettings
+	outbound.StreamSettings.Network = server.TransportProtocol.String()
+	outbound.StreamSettings.Security = server.Security
+
+	switch server.TransportProtocol {
+	case rye.TransportProtocolWS:
+		outbound.StreamSettings.WSSettings = &WSSettings{
+			Path: server.Path,
+			Headers: map[string]string{
+				"host": server.Host,
+			},
+		}
+	default:
+		// just do nothing currently
+	}
+
+	switch server.Security {
+	case "tls":
+		outbound.StreamSettings.TLSSettings = &TLSSettings{
+			Insecure:   server.AllowInsecure,
+			ServerName: server.ServerName,
+		}
+	case "reality":
+		outbound.StreamSettings.RealitySettings = &RealitySettings{
+			FingerPrint: server.FingerPrint,
+			PublicKey:   server.PublicKey,
+			ServerName:  server.ServerName,
+			ShortID:     server.ShortID,
+		}
+	default:
+		// just do nothing currently
+	}
+
+	return outbound, nil
 }

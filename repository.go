@@ -8,7 +8,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/larryzhao/rye/xray"
 	"gopkg.in/yaml.v3"
 )
 
@@ -27,11 +26,11 @@ type RepoServer struct {
 }
 
 type Repo struct {
-	Dir        string
-	XrayConfig *xray.Config
-	Settings   *Settings
-	Servers    []*RepoServer
-	Status     *Status
+	Dir string
+	// XrayConfig *xray.Config
+	Settings *Settings
+	Servers  []*RepoServer
+	Status   *Status
 }
 
 func (repo *Repo) settingsFile() string {
@@ -148,10 +147,10 @@ func LoadRepo() (*Repo, error) {
 	}
 
 	// load xray config
-	repo.XrayConfig, err = xray.ParseJSONConfig(repo.XrayConfigFile())
-	if err != nil {
-		return nil, fmt.Errorf("decode xray config err: %w", err)
-	}
+	// repo.XrayConfig, err = xray.ParseJSONConfig(repo.XrayConfigFile())
+	// if err != nil {
+	// 	return nil, fmt.Errorf("decode xray config err: %w", err)
+	// }
 
 	// load runner status
 	repo.Status = &Status{}
