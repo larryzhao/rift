@@ -8,17 +8,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	Version string
-	Build   string
-)
-
 func main() {
 	root := commands.NewRootCmd()
 	root.AddCommand(&cobra.Command{
 		Use: "version",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("%s %s\n", Version, Build)
+			fmt.Println(rye.Ver())
 			return nil
 		},
 	})
