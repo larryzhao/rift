@@ -70,6 +70,8 @@ func NewStartCmd() *cobra.Command {
 					return err
 				}
 			}
+
+			rye.PrintlnInfo("started")
 			return nil
 		},
 	}
