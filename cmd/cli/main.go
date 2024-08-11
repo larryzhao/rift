@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	version string
-	build   string
+	Version string
+	Build   string
 )
 
 func main() {
@@ -18,7 +18,7 @@ func main() {
 	root.AddCommand(&cobra.Command{
 		Use: "version",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("%s %s\n", version, build)
+			fmt.Printf("%s %s\n", Version, Build)
 			return nil
 		},
 	})
