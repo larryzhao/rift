@@ -47,6 +47,7 @@ func NewRootCmd() *cobra.Command {
 	cmd.AddCommand(NewSubscriptionsCmd())
 	cmd.AddCommand(NewServersCmd())
 	cmd.AddCommand(NewPACCmd())
+	cmd.AddCommand(NewVersionCmd())
 
 	cmd.PersistentFlags().BoolP("verbose", "v", false, "print verbosely")
 	return &cmd

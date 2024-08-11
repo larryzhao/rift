@@ -100,14 +100,22 @@ func (repo *Repo) UpdateSubscriptions() ([]*Subscription, error) {
 
 func (repo *Repo) UpdateServersByGroup(group string, servers []*Server) error {
 	var newServers []*RepoServer
+	var oldServers []*RepoServer
 
+	// preserve the servers that NOT belongs to the group to be updated
+	// they should be kept unchanged after the update
 	for _, srv := range repo.Servers {
 		if srv.Group == group {
+			// keep old servers just for verbose output
+			if PrintVerbosly {
+				oldServers = append(oldServers, srv)
+			}
 			continue
 		}
 		newServers = append(newServers, srv)
 	}
 
+	// add the new servers to the group to be updated
 	for _, srv := range servers {
 		newServers = append(newServers, &RepoServer{
 			Group:  group,
