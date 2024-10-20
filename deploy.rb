@@ -1,3 +1,4 @@
+require 'mina/default'
 require 'mina/git'
 
 set :branch, 'main'
