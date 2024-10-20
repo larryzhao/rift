@@ -36,7 +36,7 @@ task :release do
     # build binaries
     fetch(:os).each do |os|
       fetch(:arch).each do |arch|
-        puts "build #{os}, #{arch}"
+        puts "build #{os}, #{arch} in #{fetch(:current_path)}"
       end
     end
     # dist_name = "rye-#{version}-macos-arm64"
