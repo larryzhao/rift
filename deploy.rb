@@ -30,10 +30,12 @@ task :release do
       fi
     }
 
-    # # create tag
+    # build binaries
+    sh %(BUILD=$(eval git rev-parse HEAD) && go build -o ./dist/rye-#{version}-macos-arm64/rye -ldflags "-s -w -X github.com/larryzhao/rye.Build=$BUILD -X github.com/larryzhao/rye.Version=#{version}" ./cmd/cli/...)
     # sh %(git tag #{version})
-      
 
+
+    # 
 
     # sh %(GOOS=linux GOARCH=amd64 go build -o ./dist/linux/amd64/ ./cmd/server)
     # sh %(GOOS=linux GOARCH=amd64 go build -o ./dist/linux/amd64/ ./cmd/cli)
