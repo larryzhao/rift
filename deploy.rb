@@ -2,6 +2,9 @@ require 'mina/git'
 
 set :branch, 'main'
 set :execution_mode, 'system'
+set :os, ['darwin']
+set :arch, ['amd64']
+
 
 desc 'Release a new version'
 task :release do
@@ -31,12 +34,21 @@ task :release do
     }
 
     # build binaries
-    sh %(BUILD=$(eval git rev-parse HEAD) && go build -o ./dist/rye-#{version}-macos-arm64/rye -ldflags "-s -w -X github.com/larryzhao/rye.Build=$BUILD -X github.com/larryzhao/rye.Version=#{version}" ./cmd/cli/...)
-    sh %(touch ./dist/rye-#{version}-macos-arm64/LICENSE)
-    sh %(touch ./dist/rye-#{version}-macos-arm64/README.md)
+    fetch(:os).each do |os|
+      fetch(:arch).each do |arch|
+        puts "build #{os}, #{arch}"
+      end
+    end
+    # dist_name = "rye-#{version}-macos-arm64"
+    # dist_dir = "./dist/#{dist_name}"
+    # sh %(BUILD=$(eval git rev-parse HEAD) && go build -o #{dist_dir}/rye -ldflags "-s -w -X github.com/larryzhao/rye.Build=$BUILD -X github.com/larryzhao/rye.Version=#{version}" ./cmd/cli/...)
+    # sh %(touch #{dist_dir}/LICENSE)
+    # sh %(touch #{dist_dir}/README.md)
 
-    # build a tarball
-    sh %(tar czf ./dist/rye-#{version}-macos-arm64.tar.gz ./dist/rye-#{version}-macos-arm64)
+    # # build a tarball
+    # in_path("./dist/rye-#{version}-macos-arm64/README.md") do
+    #   command %(tar czf ./dist/rye-#{version}-macos-arm64.tar.gz ./dist/rye-#{version}-macos-arm64)
+    # end
 
 
     # sh %(GOOS=linux GOARCH=amd64 go build -o ./dist/linux/amd64/ ./cmd/server)
