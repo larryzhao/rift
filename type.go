@@ -28,6 +28,8 @@ func (p Protocl) ShortName() string {
 		return "TR"
 	case ProtoclHysteria2:
 		return "HY"
+	case ProtoclVMess:
+		return "VM"
 	default:
 		panic(fmt.Sprintf("unknown protocol: %s", p.String()))
 	}
@@ -37,6 +39,8 @@ func (p Protocl) Style() lipgloss.Style {
 	switch p {
 	case ProtoclVLess:
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("#e95c55")).Bold(true)
+	case ProtoclVMess:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#6ea55a")).Bold(true)
 	case ProtoclTrojan:
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("#237eb3")).Bold(true)
 	case ProtoclHysteria2:

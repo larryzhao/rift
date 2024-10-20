@@ -1,9 +1,12 @@
 package rye
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 )
 
 type Server struct {
@@ -24,9 +27,79 @@ type Server struct {
 	FingerPrint       string            `yaml:"fingerprint,omitempty"`
 	PublicKey         string            `yaml:"public_key,omitempty"`
 	ShortID           string            `yaml:"short_id,omitempty"`
+	AlterID           string            `yaml:"alterid,omitempty"`
 }
 
-func ParseServerFromURL(urlString string) (*Server, error) {
+func ParseServer(serverStr string) (*Server, error) {
+	urlParts := strings.Split(serverStr, "://")
+	if len(urlParts) != 2 {
+		return nil, fmt.Errorf("invalid server string")
+	}
+
+	// see if the second part of the url is a base64 encoded one
+	if strings.Contains(urlParts[1], ":") {
+		return parseServerFromURL(serverStr)
+	}
+
+	return parseServerFromBase64EncodedJSON(serverStr)
+}
+
+func parseServerFromBase64EncodedJSON(serverStr string) (*Server, error) {
+	urlParts := strings.Split(serverStr, "://")
+	if len(urlParts) != 2 {
+		return nil, fmt.Errorf("invalid server string")
+	}
+
+	jsonData, err := base64.StdEncoding.DecodeString(urlParts[1])
+	if err != nil {
+		return nil, err
+	}
+
+	type jsonServerStruct struct {
+		V    string `json:"v"`
+		PS   string `json:"ps"`
+		Add  string `json:"add"`
+		Port string `json:"port"`
+		ID   string `json:"id"`
+		AID  string `json:"aid"`
+		Net  string `json:"net"`
+		Type string `json:"type"`
+		Host string `json:"host"`
+		Path string `json:"path"`
+		TLS  string `json:"tls"`
+	}
+
+	var jsonServer jsonServerStruct
+	err = json.Unmarshal(jsonData, &jsonServer)
+	if err != nil {
+		return nil, fmt.Errorf("parse server attrs from json err: %w", err)
+	}
+
+	var server Server
+
+	server.Protocol, err = ParseProtocl(urlParts[0])
+	if err != nil {
+		return nil, fmt.Errorf("parse protocol from %s err: %w", urlParts[0], err)
+	}
+	server.Host = jsonServer.Add
+	server.Port, err = strconv.Atoi(jsonServer.Port)
+	if err != nil {
+		return nil, fmt.Errorf("parse port to int err: %w", err)
+	}
+	server.User = jsonServer.ID
+	server.Name = jsonServer.PS
+	server.Encryption = "auto"
+	server.TransportProtocol, err = ParseTransportProtocol(jsonServer.Net)
+	if err != nil {
+		return nil, fmt.Errorf("parse transport protocol from %s err: %w", jsonServer.Net, err)
+	}
+	server.Security = jsonServer.Type
+	server.AlterID = jsonServer.AID
+
+	return &server, nil
+}
+
+func parseServerFromURL(urlString string) (*Server, error) {
 	var err error
 
 	u, err := url.Parse(urlString)

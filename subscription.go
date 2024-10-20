@@ -40,7 +40,7 @@ func (sub *Subscription) Fetch(ctx context.Context) ([]*Server, error) {
 	scanner := bufio.NewScanner(bytes.NewReader(decodedData))
 	for scanner.Scan() {
 		url := scanner.Text()
-		server, err := ParseServerFromURL(url)
+		server, err := ParseServer(url)
 		if err != nil {
 			PrintlnVerbose("parse server url %s err: %s", url, err.Error())
 			continue

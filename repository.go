@@ -61,6 +61,27 @@ func (repo *Repo) StatusFile() string {
 	return path.Join(repo.Dir, "status.json")
 }
 
+func (repo *Repo) AddSubscription(subscription *Subscription) error {
+	for _, sub := range repo.Settings.Subscriptions {
+		if sub.Name == subscription.Name {
+			return fmt.Errorf("subscription should have a distinct name")
+		}
+	}
+
+	repo.Settings.Subscriptions = append(repo.Settings.Subscriptions, subscription)
+
+	bb, err := yaml.Marshal(repo.Settings)
+	if err != nil {
+		return fmt.Errorf("marshal repo settings err: %w", err)
+	}
+	err = os.WriteFile(repo.settingsFile(), bb, 0644)
+	if err != nil {
+		return fmt.Errorf("write repo settings file err: %w", err)
+	}
+
+	return nil
+}
+
 func (repo *Repo) UpdateSubscriptions() ([]*Subscription, error) {
 	var updatedSubs []*Subscription
 	for _, sub := range repo.Settings.Subscriptions {

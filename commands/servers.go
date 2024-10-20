@@ -160,7 +160,20 @@ func NewServersCmd() *cobra.Command {
 
 					confData, err := runner.ToConfig(selectedServer.Server)
 					if err != nil {
-						m.onSelectMessage = rye.SprintfError("convert to hysteria2 config err: %s", err.Error())
+						m.onSelectMessage = rye.SprintfError("convert to xray config err: %s", err.Error())
+						return
+					}
+
+					err = os.WriteFile(repo.XrayConfigFile(), confData, 0644)
+					if err != nil {
+						m.onSelectMessage = rye.SprintfError("write xray config file err: %s", err.Error())
+						return
+					}
+				case rye.ProtoclVMess:
+					runner = xray.NewRunner("/opt/homebrew/bin/xray", repo.XrayConfigFile())
+					confData, err := runner.ToConfig(selectedServer.Server)
+					if err != nil {
+						m.onSelectMessage = rye.SprintfError("convert to xray config err: %s", err.Error())
 						return
 					}
 

@@ -39,7 +39,7 @@ func NewStartCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("save status err: %w", err)
 					}
-				case rye.ProtoclVLess:
+				case rye.ProtoclVLess, rye.ProtoclVMess:
 					runner := xray.NewRunner("/opt/homebrew/bin/xray", repo.XrayConfigFile())
 					pid, err := runner.Run()
 					if err != nil {
@@ -51,6 +51,8 @@ func NewStartCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("save status err: %w", err)
 					}
+				default:
+					return fmt.Errorf("don't know how to start a %s server", repo.Status.Protocl.ShortName())
 				}
 			}
 
