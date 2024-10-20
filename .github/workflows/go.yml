@@ -6,8 +6,8 @@ name: Go
 on:
   push:
     branches: [ "add-build-action" ]
-    # tags:
-    #   - "v*.*.*"
+    tags:
+      - "v*.*.*"
 
 jobs:
   build:
