@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -64,9 +65,19 @@ func (status *Status) IsProxySet() (bool, error) {
 		return false, err
 	}
 
-	reg := regexp.MustCompile(`URL: (.*)`)
+	// check if Enabled.
+	reg := regexp.MustCompile(`Enabled: (.*)`)
 	matches := reg.FindStringSubmatch(string(bb))
+	if len(matches) > 0 {
+		enablement := matches[1]
+		if strings.ToLower(strings.Trim(enablement, " ")) == "no" {
+			return false, nil
+		}
+	}
 
+	// check if proxy is from rye.
+	reg = regexp.MustCompile(`URL: (.*)`)
+	matches = reg.FindStringSubmatch(string(bb))
 	if len(matches) > 0 && matches[1] == "http://127.0.0.1:60061/pac/proxy.js" {
 		return true, nil
 	}
