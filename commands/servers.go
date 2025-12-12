@@ -184,6 +184,15 @@ func NewServersCmd() *cobra.Command {
 					}
 				}
 
+				repo.Status.ServerGroup = selectedServer.Group
+				repo.Status.ServerName = selectedServer.Server.Name
+				repo.Status.Protocl = selectedServer.Server.Protocol
+				err := repo.SaveStatus()
+				if err != nil {
+					m.onSelectMessage = rye.SprintfError("save status file err: %s", err.Error())
+					return
+				}
+
 				ok, err := repo.Status.IsProxyRunning()
 				if err != nil {
 					m.onSelectMessage = rye.SprintfError("check if proxy is running err: %s", err.Error())
@@ -191,23 +200,25 @@ func NewServersCmd() *cobra.Command {
 				}
 				if ok {
 					pid := repo.Status.PIDByKind("proxy")
+
+					rye.SprintfVerbose("stopping running proxy with pid: %d", pid)
+
 					err = rye.Stop(pid)
 					if err != nil {
 						m.onSelectMessage = rye.SprintfError("stop proxy %d err: %s", pid, err.Error())
 						return
 					}
 
+					rye.SprintfVerbose("starting proxy again")
 					pid, err = runner.Run()
 					if err != nil {
 						m.onSelectMessage = rye.SprintfError("start proxy %s err: %s", selectedServer.Server.Protocol.String(), err.Error())
 						return
 					}
+					rye.SprintfVerbose("proxy started with pid: %d", pid)
 
-					repo.Status.ServerGroup = selectedServer.Group
-					repo.Status.ServerName = selectedServer.Server.Name
-					repo.Status.Protocl = selectedServer.Server.Protocol
 					repo.Status.UpdateRunningProcess("proxy", pid)
-					err = repo.SaveStatus()
+					err := repo.SaveStatus()
 					if err != nil {
 						m.onSelectMessage = rye.SprintfError("save status file err: %s", err.Error())
 						return
