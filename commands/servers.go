@@ -22,14 +22,17 @@ var (
 	titleStyle        = lipgloss.NewStyle().MarginLeft(2)
 	itemStyle         = lipgloss.NewStyle().PaddingLeft(4)
 	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
+	tabStyle          = lipgloss.NewStyle().Padding(0, 1).Foreground(lipgloss.Color("240"))
+	activeTabStyle    = lipgloss.NewStyle().Padding(0, 1).Foreground(lipgloss.Color("170")).Bold(true)
 	paginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
 	helpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
 	quitTextStyle     = lipgloss.NewStyle().Margin(1, 0, 2, 4)
 )
 
 type item struct {
-	Index int
-	Name  string
+	RepoIndex int
+	Group     string
+	Name      string
 }
 
 func (i item) FilterValue() string { return "" }
@@ -61,6 +64,10 @@ type model struct {
 	list            list.Model
 	onSelect        func(ctx context.Context, item *item)
 	onSelectMessage string
+	groupNames      []string
+	groupItems      map[string][]list.Item
+	selectedIndex   map[string]int
+	groupIndex      int
 	choice          string
 	quitting        bool
 }
@@ -80,6 +87,14 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
+
+		case "tab":
+			m.switchGroup(1)
+			return m, nil
+
+		case "shift+tab":
+			m.switchGroup(-1)
+			return m, nil
 
 		case "enter":
 			i, ok := m.list.SelectedItem().(item)
@@ -103,7 +118,49 @@ func (m *model) View() string {
 	if m.quitting {
 		return ""
 	}
-	return "\n" + m.list.View()
+	return "\n" + m.renderTabs() + "\n" + m.list.View()
+}
+
+func (m *model) switchGroup(step int) {
+	if len(m.groupNames) == 0 {
+		return
+	}
+
+	current := m.groupNames[m.groupIndex]
+	m.selectedIndex[current] = m.list.Index()
+	m.groupIndex = (m.groupIndex + step + len(m.groupNames)) % len(m.groupNames)
+
+	next := m.groupNames[m.groupIndex]
+	m.list.SetItems(m.groupItems[next])
+	m.list.Select(m.selectedIndex[next])
+	m.updateTitle()
+}
+
+func (m *model) updateTitle() {
+	if len(m.groupNames) == 0 {
+		m.list.Title = "No servers available"
+		return
+	}
+
+	current := m.groupNames[m.groupIndex]
+	m.list.Title = fmt.Sprintf("Choose a server to connect to... (%s)", current)
+}
+
+func (m *model) renderTabs() string {
+	if len(m.groupNames) == 0 {
+		return ""
+	}
+
+	parts := make([]string, 0, len(m.groupNames)+1)
+	for idx, group := range m.groupNames {
+		style := tabStyle
+		if idx == m.groupIndex {
+			style = activeTabStyle
+		}
+		parts = append(parts, style.Render(group))
+	}
+	parts = append(parts, tabStyle.Render("[tab/shift+tab to switch groups]"))
+	return lipgloss.JoinHorizontal(lipgloss.Left, parts...)
 }
 
 // Comand Servers
@@ -117,27 +174,45 @@ func NewServersCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			repo, _ := cmd.Context().Value(rye.CtxKeyRepo).(*rye.Repo)
 
-			var items []list.Item
+			groupNames := make([]string, 0)
+			groupItems := make(map[string][]list.Item)
+			selectedIndex := make(map[string]int)
+
 			for idx, srv := range repo.Servers {
-				items = append(items, item{
-					Index: idx,
-					Name:  fmt.Sprintf("%s %s", srv.Server.Protocol.Style().Render(srv.Server.Protocol.ShortName()), srv.Server.Name),
+				if _, ok := groupItems[srv.Group]; !ok {
+					groupNames = append(groupNames, srv.Group)
+				}
+
+				groupItems[srv.Group] = append(groupItems[srv.Group], item{
+					RepoIndex: idx,
+					Group:     srv.Group,
+					Name:      fmt.Sprintf("%s %s", srv.Server.Protocol.Style().Render(srv.Server.Protocol.ShortName()), srv.Server.Name),
 				})
 			}
 
 			const defaultWidth = 20
 
+			var items []list.Item
+			if len(groupNames) > 0 {
+				items = groupItems[groupNames[0]]
+			}
+
 			l := list.New(items, itemDelegate{}, defaultWidth, listHeight)
-			l.Title = "Choose a server to connect to..."
 			l.SetShowStatusBar(false)
 			l.SetFilteringEnabled(false)
 			l.Styles.Title = titleStyle
 			l.Styles.PaginationStyle = paginationStyle
 			l.Styles.HelpStyle = helpStyle
 
-			m := model{list: l}
+			m := model{
+				list:          l,
+				groupNames:    groupNames,
+				groupItems:    groupItems,
+				selectedIndex: selectedIndex,
+			}
+			m.updateTitle()
 			m.onSelect = func(ctx context.Context, item *item) {
-				selectedServer := repo.Servers[item.Index]
+				selectedServer := repo.Servers[item.RepoIndex]
 
 				var runner rye.Runnable
 
