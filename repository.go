@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/user"
 	"path"
+	"strconv"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -33,6 +35,16 @@ type Repo struct {
 	Status   *Status
 }
 
+type SubscriptionUpdateStat struct {
+	Subscription    *Subscription
+	Name            string
+	Updated         bool
+	ChangedServers  int
+	PreviousServers int
+	CurrentServers  int
+	Err             error
+}
+
 func (repo *Repo) settingsFile() string {
 	return path.Join(repo.Dir, "settings.yaml")
 }
@@ -51,6 +63,14 @@ func (repo *Repo) XrayConfigFile() string {
 
 func (repo *Repo) PACFile() string {
 	return path.Join(repo.Dir, "pac", "pac.js")
+}
+
+func (repo *Repo) AutoUpdateLogFile() string {
+	return path.Join(repo.logDir(), "autoupdate.log")
+}
+
+func (repo *Repo) AutoUpdatePIDFile() string {
+	return path.Join(repo.Dir, "autoupdate.pid")
 }
 
 // func (repo *Repo) RunnerPIDFile() string {
@@ -83,25 +103,68 @@ func (repo *Repo) AddSubscription(subscription *Subscription) error {
 }
 
 func (repo *Repo) UpdateSubscriptions() ([]*Subscription, error) {
+	stats, err := repo.UpdateSubscriptionsWithStats()
+	if err != nil {
+		return nil, err
+	}
+
 	var updatedSubs []*Subscription
+	for _, stat := range stats {
+		if stat.Updated {
+			updatedSubs = append(updatedSubs, stat.Subscription)
+		}
+	}
+	return updatedSubs, nil
+}
+
+func (repo *Repo) UpdateSubscriptionsWithStats() ([]SubscriptionUpdateStat, error) {
+	var stats []SubscriptionUpdateStat
 	for _, sub := range repo.Settings.Subscriptions {
+		oldServers := repo.ServersByGroup(sub.Name)
 		ctx := context.Background()
 		servers, err := sub.Fetch(ctx)
 		if err != nil {
 			PrintlnError("fetch subscription %s err: %s", sub.Name, err.Error())
+			stats = append(stats, SubscriptionUpdateStat{
+				Subscription:    sub,
+				Name:            sub.Name,
+				Updated:         false,
+				ChangedServers:  0,
+				PreviousServers: len(oldServers),
+				CurrentServers:  len(oldServers),
+				Err:             err,
+			})
 			continue
 		}
+
+		changedServers := diffServerCount(oldServers, servers)
 
 		// replace servers
 		err = repo.UpdateServersByGroup(sub.Name, servers)
 		if err != nil {
 			PrintlnError("update servers from %s err: %s", sub.Name, err.Error())
+			stats = append(stats, SubscriptionUpdateStat{
+				Subscription:    sub,
+				Name:            sub.Name,
+				Updated:         false,
+				ChangedServers:  0,
+				PreviousServers: len(oldServers),
+				CurrentServers:  len(oldServers),
+				Err:             err,
+			})
 			continue
 		}
 
 		sub.LastUpdatedAt = time.Now()
 
-		updatedSubs = append(updatedSubs, sub)
+		stats = append(stats, SubscriptionUpdateStat{
+			Subscription:    sub,
+			Name:            sub.Name,
+			Updated:         true,
+			ChangedServers:  changedServers,
+			PreviousServers: len(oldServers),
+			CurrentServers:  len(servers),
+		})
 		PrintlnVerbose("subscription: %s updated", sub.Name)
 	}
 
@@ -116,7 +179,7 @@ func (repo *Repo) UpdateSubscriptions() ([]*Subscription, error) {
 		return nil, fmt.Errorf("write repo settings file err: %w", err)
 	}
 
-	return updatedSubs, nil
+	return stats, nil
 }
 
 func (repo *Repo) UpdateServersByGroup(group string, servers []*Server) error {
@@ -214,4 +277,106 @@ func LoadRepo() (*Repo, error) {
 
 func (repo *Repo) SaveStatus() error {
 	return repo.Status.Save(repo.StatusFile())
+}
+
+func (repo *Repo) ServersByGroup(group string) []*Server {
+	var servers []*Server
+	for _, repoServer := range repo.Servers {
+		if repoServer.Group != group {
+			continue
+		}
+		servers = append(servers, repoServer.Server)
+	}
+	return servers
+}
+
+func (repo *Repo) logDir() string {
+	if repo.Settings == nil || repo.Settings.Log == nil {
+		return repo.Dir
+	}
+
+	location := strings.TrimSpace(repo.Settings.Log.Location)
+	if location == "" {
+		return repo.Dir
+	}
+
+	if strings.HasPrefix(location, "/") {
+		return location
+	}
+
+	return path.Join(repo.Dir, location)
+}
+
+func diffServerCount(oldServers []*Server, newServers []*Server) int {
+	oldMap := map[string]int{}
+	newMap := map[string]int{}
+
+	for _, server := range oldServers {
+		key := serverIdentity(server)
+		oldMap[key]++
+	}
+	for _, server := range newServers {
+		key := serverIdentity(server)
+		newMap[key]++
+	}
+
+	changed := 0
+	for key, oldCount := range oldMap {
+		newCount := newMap[key]
+		if oldCount > newCount {
+			changed += oldCount - newCount
+		}
+	}
+	for key, newCount := range newMap {
+		oldCount := oldMap[key]
+		if newCount > oldCount {
+			changed += newCount - oldCount
+		}
+	}
+
+	return changed
+}
+
+func serverIdentity(server *Server) string {
+	if server == nil {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString(server.Protocol.String())
+	b.WriteString("|")
+	b.WriteString(server.Name)
+	b.WriteString("|")
+	b.WriteString(server.Host)
+	b.WriteString("|")
+	b.WriteString(strconv.Itoa(server.Port))
+	b.WriteString("|")
+	b.WriteString(server.User)
+	b.WriteString("|")
+	b.WriteString(server.Flow)
+	b.WriteString("|")
+	b.WriteString(server.Encryption)
+	b.WriteString("|")
+	b.WriteString(server.TransportProtocol.String())
+	b.WriteString("|")
+	b.WriteString(server.ServerName)
+	b.WriteString("|")
+	b.WriteString(server.Path)
+	b.WriteString("|")
+	if server.AllowInsecure {
+		b.WriteString("1")
+	} else {
+		b.WriteString("0")
+	}
+	b.WriteString("|")
+	b.WriteString(server.Security)
+	b.WriteString("|")
+	b.WriteString(server.FingerPrint)
+	b.WriteString("|")
+	b.WriteString(server.PublicKey)
+	b.WriteString("|")
+	b.WriteString(server.ShortID)
+	b.WriteString("|")
+	b.WriteString(server.AlterID)
+	return b.String()
 }
