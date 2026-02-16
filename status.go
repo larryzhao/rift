@@ -19,12 +19,19 @@ type RunningProcess struct {
 	StartedAt int64 `json:"started_at"`
 }
 
+type SubscriptionUpdateStatus struct {
+	LastAttemptAt int64  `json:"last_attempt_at,omitempty"`
+	LastSuccessAt int64  `json:"last_success_at,omitempty"`
+	LastError     string `json:"last_error,omitempty"`
+}
+
 type Status struct {
-	ServerGroup      string           `json:"server_group"`
-	ServerName       string           `json:"server_name"`
-	Protocl          Protocl          `json:"protocol"`
-	PACPort          int              `json:"pac_port"`
-	RunningProcesses []RunningProcess `json:"running_processes"`
+	ServerGroup          string                              `json:"server_group"`
+	ServerName           string                              `json:"server_name"`
+	Protocl              Protocl                             `json:"protocol"`
+	PACPort              int                                 `json:"pac_port"`
+	RunningProcesses     []RunningProcess                    `json:"running_processes"`
+	SubscriptionStatuses map[string]SubscriptionUpdateStatus `json:"subscription_statuses,omitempty"`
 }
 
 func (status *Status) PIDByKind(kind string) int {
@@ -55,6 +62,42 @@ func (status *Status) UpdateRunningProcess(kind string, pid int) {
 		PID:       pid,
 		StartedAt: time.Now().Unix(),
 	})
+}
+
+func (status *Status) ClearRunningProcess(kind string) {
+	var processes []RunningProcess
+	for _, proc := range status.RunningProcesses {
+		if proc.Kind == kind {
+			continue
+		}
+		processes = append(processes, proc)
+	}
+	status.RunningProcesses = processes
+}
+
+func (status *Status) IsRunningByKind(kind string) (bool, error) {
+	pid := status.PIDByKind(kind)
+	return Running(pid)
+}
+
+func (status *Status) IsAutoUpdateRunning() (bool, error) {
+	return status.IsRunningByKind("autoupdate")
+}
+
+func (status *Status) UpdateSubscriptionStatus(name string, attemptAt time.Time, successAt *time.Time, err error) {
+	if status.SubscriptionStatuses == nil {
+		status.SubscriptionStatuses = map[string]SubscriptionUpdateStatus{}
+	}
+
+	subStatus := status.SubscriptionStatuses[name]
+	subStatus.LastAttemptAt = attemptAt.Unix()
+	if successAt != nil {
+		subStatus.LastSuccessAt = successAt.Unix()
+		subStatus.LastError = ""
+	} else if err != nil {
+		subStatus.LastError = err.Error()
+	}
+	status.SubscriptionStatuses[name] = subStatus
 }
 
 func (status *Status) IsProxySet() (bool, error) {
@@ -101,41 +144,7 @@ func (status *Status) IsPACServerRunning() (bool, error) {
 }
 
 func (status *Status) IsProxyRunning() (bool, error) {
-	var pid int
-	for _, p := range status.RunningProcesses {
-		if p.Kind != "proxy" {
-			continue
-		}
-		pid = p.PID
-		break
-	}
-
-	if pid <= 0 {
-		return false, nil
-	}
-
-	proc, err := os.FindProcess(pid)
-	if err != nil {
-		return false, err
-	}
-	err = proc.Signal(syscall.Signal(0))
-	if err == nil {
-		return true, nil
-	}
-	if err.Error() == "os: process already finished" {
-		return false, nil
-	}
-	errno, ok := err.(syscall.Errno)
-	if !ok {
-		return false, err
-	}
-	switch errno {
-	case syscall.ESRCH:
-		return false, nil
-	case syscall.EPERM:
-		return true, nil
-	}
-	return false, err
+	return status.IsRunningByKind("proxy")
 }
 
 func (status *Status) Load(filepath string) error {
@@ -159,7 +168,7 @@ func (status *Status) Save(filepath string) error {
 
 	err = os.WriteFile(filepath, bb, 0644)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	return nil

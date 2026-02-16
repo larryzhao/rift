@@ -66,11 +66,7 @@ func (repo *Repo) PACFile() string {
 }
 
 func (repo *Repo) AutoUpdateLogFile() string {
-	return path.Join(repo.logDir(), "autoupdate.log")
-}
-
-func (repo *Repo) AutoUpdatePIDFile() string {
-	return path.Join(repo.Dir, "autoupdate.pid")
+	return path.Join(repo.Dir, "autoupdate.log")
 }
 
 // func (repo *Repo) RunnerPIDFile() string {
@@ -288,23 +284,6 @@ func (repo *Repo) ServersByGroup(group string) []*Server {
 		servers = append(servers, repoServer.Server)
 	}
 	return servers
-}
-
-func (repo *Repo) logDir() string {
-	if repo.Settings == nil || repo.Settings.Log == nil {
-		return repo.Dir
-	}
-
-	location := strings.TrimSpace(repo.Settings.Log.Location)
-	if location == "" {
-		return repo.Dir
-	}
-
-	if strings.HasPrefix(location, "/") {
-		return location
-	}
-
-	return path.Join(repo.Dir, location)
 }
 
 func diffServerCount(oldServers []*Server, newServers []*Server) int {

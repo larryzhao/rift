@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 	"time"
 
@@ -107,12 +106,9 @@ func newSubscriptionsAutoUpdateCmd() *cobra.Command {
 				return runSubscriptionsAutoUpdateDaemon(repo, interval)
 			}
 
-			pid, err := readAutoUpdatePID(repo)
-			if err != nil {
-				return err
-			}
+			pid := repo.Status.PIDByKind("autoupdate")
 			if pid > 0 {
-				running, err := rye.Running(pid)
+				running, err := repo.Status.IsAutoUpdateRunning()
 				if err != nil {
 					return fmt.Errorf("check running autoupdate daemon err: %w", err)
 				}
@@ -132,6 +128,11 @@ func newSubscriptionsAutoUpdateCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("start autoupdate daemon err: %w", err)
 			}
+			repo.Status.UpdateRunningProcess("autoupdate", pid)
+			err = repo.SaveStatus()
+			if err != nil {
+				return fmt.Errorf("save status err: %w", err)
+			}
 
 			rye.PrintlnInfo("autoupdate daemon started, pid=%d", pid)
 			rye.PrintlnInfo("autoupdate log file: %s", repo.AutoUpdateLogFile())
@@ -149,11 +150,14 @@ func newSubscriptionsAutoUpdateCmd() *cobra.Command {
 }
 
 func runSubscriptionsAutoUpdateDaemon(repo *rye.Repo, interval time.Duration) error {
-	err := ensureAutoUpdatePID(repo)
+	err := ensureAutoUpdateStatus(repo)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(repo.AutoUpdatePIDFile())
+	defer func() {
+		repo.Status.ClearRunningProcess("autoupdate")
+		_ = repo.SaveStatus()
+	}()
 
 	err = appendAutoUpdateLog(repo, "daemon started; interval=%s", interval)
 	if err != nil {
@@ -178,11 +182,14 @@ func runSubscriptionsAutoUpdateDaemon(repo *rye.Repo, interval time.Duration) er
 			_ = appendAutoUpdateLog(repo, "run finished; updated_subscriptions=%d; changed_servers=%d", updatedSubs, totalChanged)
 		}
 
+		now := time.Now()
 		for _, stat := range stats {
 			if stat.Err != nil {
+				repo.Status.UpdateSubscriptionStatus(stat.Name, now, nil, stat.Err)
 				_ = appendAutoUpdateLog(repo, "subscription=%s; status=failed; err=%s", stat.Name, stat.Err.Error())
 				continue
 			}
+			repo.Status.UpdateSubscriptionStatus(stat.Name, now, &now, nil)
 			_ = appendAutoUpdateLog(
 				repo,
 				"subscription=%s; status=updated; changed_servers=%d; previous_servers=%d; current_servers=%d",
@@ -192,49 +199,33 @@ func runSubscriptionsAutoUpdateDaemon(repo *rye.Repo, interval time.Duration) er
 				stat.CurrentServers,
 			)
 		}
+		if err := repo.SaveStatus(); err != nil {
+			_ = appendAutoUpdateLog(repo, "save status failed; err=%s", err.Error())
+		}
 
 		time.Sleep(interval)
 	}
 }
 
-func ensureAutoUpdatePID(repo *rye.Repo) error {
-	pid, err := readAutoUpdatePID(repo)
-	if err != nil {
-		return err
-	}
-
+func ensureAutoUpdateStatus(repo *rye.Repo) error {
+	pid := repo.Status.PIDByKind("autoupdate")
+	currentPID := os.Getpid()
 	if pid > 0 {
-		running, err := rye.Running(pid)
+		running, err := repo.Status.IsAutoUpdateRunning()
 		if err != nil {
 			return fmt.Errorf("check running autoupdate daemon err: %w", err)
 		}
-		if running {
+		if running && pid != currentPID {
 			return fmt.Errorf("autoupdate daemon already running with pid %d", pid)
 		}
 	}
 
-	currentPID := os.Getpid()
-	err = os.WriteFile(repo.AutoUpdatePIDFile(), []byte(strconv.Itoa(currentPID)), 0644)
+	repo.Status.UpdateRunningProcess("autoupdate", currentPID)
+	err := repo.SaveStatus()
 	if err != nil {
-		return fmt.Errorf("write autoupdate pid file err: %w", err)
+		return fmt.Errorf("save status err: %w", err)
 	}
 	return nil
-}
-
-func readAutoUpdatePID(repo *rye.Repo) (int, error) {
-	bb, err := os.ReadFile(repo.AutoUpdatePIDFile())
-	if err != nil {
-		if os.IsNotExist(err) {
-			return 0, nil
-		}
-		return 0, fmt.Errorf("read autoupdate pid file err: %w", err)
-	}
-
-	pid, err := strconv.Atoi(strings.TrimSpace(string(bb)))
-	if err != nil {
-		return 0, fmt.Errorf("parse autoupdate pid file err: %w", err)
-	}
-	return pid, nil
 }
 
 func appendAutoUpdateLog(repo *rye.Repo, format string, args ...interface{}) error {
