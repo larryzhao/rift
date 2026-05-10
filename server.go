@@ -31,21 +31,34 @@ type Server struct {
 }
 
 func ParseServer(serverStr string) (*Server, error) {
-	urlParts := strings.Split(serverStr, "://")
+	urlParts := strings.SplitN(serverStr, "://", 2)
 	if len(urlParts) != 2 {
 		return nil, fmt.Errorf("invalid server string")
 	}
 
-	// see if the second part of the url is a base64 encoded one
-	if strings.Contains(urlParts[1], ":") {
-		return parseServerFromURL(serverStr)
+	protocol, err := ParseProtocl(urlParts[0])
+	if err != nil {
+		return nil, fmt.Errorf("parse protocol from %s err: %w", urlParts[0], err)
 	}
 
-	return parseServerFromBase64EncodedJSON(serverStr)
+	switch protocol {
+	case ProtoclSS:
+		return parseSSServerFromURL(serverStr)
+	case ProtoclHysteria2:
+		return parseHysteria2ServerFromURL(serverStr)
+	case ProtoclVLess:
+		return parseVLessServerFromURL(serverStr)
+	case ProtoclVMess:
+		return parseVMessServerFromURL(serverStr)
+	case ProtoclTrojan:
+		return parseTrojanServerFromURL(serverStr)
+	default:
+		return nil, fmt.Errorf("unknown protocol: %s", protocol.String())
+	}
 }
 
 func parseServerFromBase64EncodedJSON(serverStr string) (*Server, error) {
-	urlParts := strings.Split(serverStr, "://")
+	urlParts := strings.SplitN(serverStr, "://", 2)
 	if len(urlParts) != 2 {
 		return nil, fmt.Errorf("invalid server string")
 	}
@@ -99,12 +112,31 @@ func parseServerFromBase64EncodedJSON(serverStr string) (*Server, error) {
 	return &server, nil
 }
 
-func parseServerFromURL(urlString string) (*Server, error) {
-	var err error
+func parseVLessServerFromURL(rawURL string) (*Server, error) {
+	return parseCommonServerFromURL(rawURL, true)
+}
 
-	u, err := url.Parse(urlString)
+func parseVMessServerFromURL(rawURL string) (*Server, error) {
+	urlParts := strings.SplitN(rawURL, "://", 2)
+	if len(urlParts) == 2 && !strings.Contains(urlParts[1], ":") {
+		return parseServerFromBase64EncodedJSON(rawURL)
+	}
+
+	return parseCommonServerFromURL(rawURL, true)
+}
+
+func parseTrojanServerFromURL(rawURL string) (*Server, error) {
+	return parseCommonServerFromURL(rawURL, true)
+}
+
+func parseHysteria2ServerFromURL(rawURL string) (*Server, error) {
+	return parseCommonServerFromURL(rawURL, false)
+}
+
+func parseCommonServerFromURL(rawURL string, parseTransport bool) (*Server, error) {
+	u, err := url.Parse(rawURL)
 	if err != nil {
-		return nil, fmt.Errorf("parse url %s err: %w", urlString, err)
+		return nil, fmt.Errorf("parse url %s err: %w", rawURL, err)
 	}
 
 	server := &Server{}
@@ -125,7 +157,7 @@ func parseServerFromURL(urlString string) (*Server, error) {
 	server.User = u.User.String()
 	server.Host = u.Hostname()
 
-	if server.Protocol != ProtoclHysteria2 {
+	if parseTransport {
 		server.TransportProtocol, err = ParseTransportProtocol(u.Query().Get("type"))
 		if err != nil {
 			return nil, err
@@ -149,4 +181,102 @@ func parseServerFromURL(urlString string) (*Server, error) {
 	server.ShortID = u.Query().Get("sid")
 
 	return server, nil
+}
+
+func parseSSServerFromURL(rawURL string) (*Server, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse url %s err: %w", rawURL, err)
+	}
+
+	server := &Server{Protocol: ProtoclSS}
+	if u.User != nil && u.Hostname() != "" && u.Port() != "" {
+		server.Host = u.Hostname()
+		port, err := strconv.Atoi(u.Port())
+		if err != nil {
+			return nil, fmt.Errorf("parse port err: %w", err)
+		}
+		server.Port = port
+
+		userInfo := u.User.String()
+		if decodedUserInfo, unescapeErr := url.PathUnescape(userInfo); unescapeErr == nil {
+			userInfo = decodedUserInfo
+		}
+		if decoded, decodeErr := decodeBase64String(userInfo); decodeErr == nil {
+			userInfo = decoded
+		}
+		if err := applyShadowsocksUserInfo(server, userInfo); err != nil {
+			return nil, err
+		}
+	} else {
+		encoded := strings.TrimPrefix(rawURL, u.Scheme+"://")
+		if idx := strings.IndexAny(encoded, "?#"); idx >= 0 {
+			encoded = encoded[:idx]
+		}
+		decoded, err := decodeBase64String(encoded)
+		if err != nil {
+			return nil, fmt.Errorf("decode shadowsocks url err: %w", err)
+		}
+		if err := applyLegacyShadowsocksServer(server, decoded); err != nil {
+			return nil, err
+		}
+	}
+
+	server.Name = server.Host
+	if u.Fragment != "" {
+		server.Name = u.Fragment
+	}
+
+	return server, nil
+}
+
+func applyLegacyShadowsocksServer(server *Server, decoded string) error {
+	at := strings.LastIndex(decoded, "@")
+	if at < 0 {
+		return fmt.Errorf("invalid shadowsocks url")
+	}
+
+	if err := applyShadowsocksUserInfo(server, decoded[:at]); err != nil {
+		return err
+	}
+
+	hostPort := decoded[at+1:]
+	host, port, ok := strings.Cut(hostPort, ":")
+	if !ok {
+		return fmt.Errorf("invalid shadowsocks host and port")
+	}
+	server.Host = host
+	var err error
+	server.Port, err = strconv.Atoi(port)
+	if err != nil {
+		return fmt.Errorf("parse port err: %w", err)
+	}
+
+	return nil
+}
+
+func applyShadowsocksUserInfo(server *Server, userInfo string) error {
+	method, password, ok := strings.Cut(userInfo, ":")
+	if !ok || method == "" || password == "" {
+		return fmt.Errorf("invalid shadowsocks user info")
+	}
+	server.Encryption = method
+	server.User = password
+	return nil
+}
+
+func decodeBase64String(encoded string) (string, error) {
+	encoded = strings.TrimSpace(encoded)
+	for _, encoding := range []*base64.Encoding{
+		base64.StdEncoding,
+		base64.RawStdEncoding,
+		base64.URLEncoding,
+		base64.RawURLEncoding,
+	} {
+		decoded, err := encoding.DecodeString(encoded)
+		if err == nil {
+			return string(decoded), nil
+		}
+	}
+	return "", fmt.Errorf("invalid base64 data")
 }

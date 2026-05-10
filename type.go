@@ -14,6 +14,7 @@ const (
 	ProtoclVLess     Protocl = "vless"
 	ProtoclTrojan    Protocl = "trojan"
 	ProtoclHysteria2 Protocl = "hysteria2"
+	ProtoclSS        Protocl = "ss"
 )
 
 func (p Protocl) String() string {
@@ -30,6 +31,8 @@ func (p Protocl) ShortName() string {
 		return "HY"
 	case ProtoclVMess:
 		return "VM"
+	case ProtoclSS:
+		return "SS"
 	default:
 		panic(fmt.Sprintf("unknown protocol: %s", p.String()))
 	}
@@ -45,6 +48,8 @@ func (p Protocl) Style() lipgloss.Style {
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("#237eb3")).Bold(true)
 	case ProtoclHysteria2:
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("#3a687f")).Bold(true)
+	case ProtoclSS:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#a66bbe")).Bold(true)
 	default:
 		panic(fmt.Sprintf("unknown protocol: %s", p.String()))
 	}
@@ -60,6 +65,8 @@ func ParseProtocl(s string) (Protocl, error) {
 		return ProtoclTrojan, nil
 	case "hysteria2":
 		return ProtoclHysteria2, nil
+	case "ss", "shadowsocks":
+		return ProtoclSS, nil
 	}
 
 	return ProtoclUnknown, fmt.Errorf("unknown protocol: %s", s)

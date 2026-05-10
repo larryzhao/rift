@@ -157,9 +157,29 @@ func toOutbound(server *rye.Server) (*Outbound, error) {
 		return toVlessOutbound(server)
 	case rye.ProtoclVMess:
 		return toVMessOutbound(server)
+	case rye.ProtoclSS:
+		return toShadowsocksOutbound(server)
 	default:
 		return nil, fmt.Errorf("unknown protocol %s", server.Protocol.String())
 	}
+}
+
+func toShadowsocksOutbound(server *rye.Server) (*Outbound, error) {
+	outbound := &Outbound{
+		Protocol: "shadowsocks",
+		Tag:      "proxy",
+		Mux:      nil,
+	}
+
+	message, _ := json.Marshal(map[string]interface{}{
+		"address":  server.Host,
+		"port":     server.Port,
+		"method":   server.Encryption,
+		"password": server.User,
+	})
+	outbound.Settings = (*json.RawMessage)(&message)
+
+	return outbound, nil
 }
 
 func toVMessOutbound(server *rye.Server) (*Outbound, error) {

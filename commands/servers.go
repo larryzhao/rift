@@ -244,7 +244,7 @@ func NewServersCmd() *cobra.Command {
 						m.onSelectMessage = rye.SprintfError("write xray config file err: %s", err.Error())
 						return
 					}
-				case rye.ProtoclVMess:
+				case rye.ProtoclVMess, rye.ProtoclSS:
 					runner = xray.NewRunner("/opt/homebrew/bin/xray", repo.XrayConfigFile())
 					confData, err := runner.ToConfig(selectedServer.Server)
 					if err != nil {
