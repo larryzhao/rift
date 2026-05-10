@@ -28,7 +28,7 @@ func NewStatusCmd() *cobra.Command {
 			} else if err != nil {
 				rye.PrintlnError("pac server not running, %s", err.Error())
 			} else {
-
+				rye.PrintlnError("pac server not running")
 			}
 
 			ok, err = repo.Status.IsProxySet()

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -25,13 +26,14 @@ func (sub *Subscription) Fetch(ctx context.Context) ([]*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	encodedData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	decodedData, err := base64.StdEncoding.DecodeString(string(encodedData))
+	decodedData, err := decodeSubscriptionData(encodedData)
 	if err != nil {
 		return nil, err
 	}
@@ -52,4 +54,21 @@ func (sub *Subscription) Fetch(ctx context.Context) ([]*Server, error) {
 	}
 
 	return servers, nil
+}
+
+func decodeSubscriptionData(encodedData []byte) ([]byte, error) {
+	encoded := string(bytes.TrimSpace(encodedData))
+
+	decodedData, stdErr := base64.StdEncoding.DecodeString(encoded)
+	if stdErr == nil {
+		return decodedData, nil
+	}
+
+	decodedData, rawURLErr := base64.RawURLEncoding.DecodeString(encoded)
+	if rawURLErr == nil {
+		return decodedData, nil
+	}
+
+	PrintlnError("decode subscription data err: std encoding: %s; raw url encoding: %s", stdErr.Error(), rawURLErr.Error())
+	return nil, fmt.Errorf("decode subscription data err: std encoding: %w; raw url encoding: %w", stdErr, rawURLErr)
 }

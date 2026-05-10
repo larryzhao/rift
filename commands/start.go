@@ -64,11 +64,13 @@ func NewStartCmd() *cobra.Command {
 				runner := pac.NewRunner()
 				pid, err := runner.Run()
 				if err != nil {
+					rye.PrintlnError("start pac err: %s", err.Error())
 					return err
 				}
 				repo.Status.UpdateRunningProcess("pac", pid)
 				err = repo.SaveStatus()
 				if err != nil {
+					rye.PrintlnError("update status err: %s", err.Error())
 					return err
 				}
 			}
