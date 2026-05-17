@@ -4,45 +4,32 @@ import (
 	"fmt"
 
 	"github.com/larryzhao/rye"
-	"github.com/larryzhao/rye/hysteria2"
+	"github.com/larryzhao/rye/singbox"
 	"github.com/spf13/cobra"
 )
 
 // Comand Run
 //
-// `rye run`
+// `rye run proxy`
 //
-// start rye runner
+// foreground entrypoint that hosts the sing-box instance in the current
+// process. `rye start` forks this command so the PID can be tracked.
 func NewRunCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "run",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return fmt.Errorf("missing run target")
+			}
 			repo, _ := cmd.Context().Value(rye.CtxKeyRepo).(*rye.Repo)
 			switch args[0] {
 			case "pac":
-
-			case "hysteria2":
-				runner := hysteria2.Runner{
-					Bin:    "/opt/homebrew/bin/hysteria",
-					Config: repo.HysteriaConfigFile(),
-				}
-
-				pid, err := runner.Run()
-				if err != nil {
-					return err
-				}
-
-				repo.Status.Protocl = rye.ProtoclHysteria2
-				repo.Status.UpdateRunningProcess("proxy", pid)
-				err = repo.SaveStatus()
-				if err != nil {
-					return err
-				}
-
+				return nil
+			case "proxy":
+				return singbox.RunForeground(repo.SingboxConfigFile())
 			default:
 				return fmt.Errorf("invalid arg: %s", args[0])
 			}
-			return nil
 		},
 	}
 

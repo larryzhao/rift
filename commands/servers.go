@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/larryzhao/rye"
-	"github.com/larryzhao/rye/hysteria2"
-	"github.com/larryzhao/rye/xray"
+	"github.com/larryzhao/rye/singbox"
 	"github.com/spf13/cobra"
 )
 
@@ -214,55 +214,25 @@ func NewServersCmd() *cobra.Command {
 			m.onSelect = func(ctx context.Context, item *item) {
 				selectedServer := repo.Servers[item.RepoIndex]
 
-				var runner rye.Runnable
-
-				switch selectedServer.Server.Protocol {
-				case rye.ProtoclHysteria2:
-					runner = hysteria2.NewRunner("/opt/homebrew/bin/hysteria", repo.HysteriaConfigFile())
-					confData, err := runner.ToConfig(selectedServer.Server)
-					if err != nil {
-						m.onSelectMessage = rye.SprintfError("convert to hysteria2 config err: %s", err.Error())
-						return
-					}
-
-					err = os.WriteFile(repo.HysteriaConfigFile(), confData, 0644)
-					if err != nil {
-						m.onSelectMessage = rye.SprintfError("write hysteria config file err: %s", err.Error())
-						return
-					}
-				case rye.ProtoclVLess:
-					runner = xray.NewRunner("/opt/homebrew/bin/xray", repo.XrayConfigFile())
-
-					confData, err := runner.ToConfig(selectedServer.Server)
-					if err != nil {
-						m.onSelectMessage = rye.SprintfError("convert to xray config err: %s", err.Error())
-						return
-					}
-
-					err = os.WriteFile(repo.XrayConfigFile(), confData, 0644)
-					if err != nil {
-						m.onSelectMessage = rye.SprintfError("write xray config file err: %s", err.Error())
-						return
-					}
-				case rye.ProtoclVMess, rye.ProtoclSS:
-					runner = xray.NewRunner("/opt/homebrew/bin/xray", repo.XrayConfigFile())
-					confData, err := runner.ToConfig(selectedServer.Server)
-					if err != nil {
-						m.onSelectMessage = rye.SprintfError("convert to xray config err: %s", err.Error())
-						return
-					}
-
-					err = os.WriteFile(repo.XrayConfigFile(), confData, 0644)
-					if err != nil {
-						m.onSelectMessage = rye.SprintfError("write xray config file err: %s", err.Error())
-						return
-					}
+				runner := singbox.NewRunner(repo.SingboxConfigFile(), repo.RunnerLogFile())
+				confData, err := runner.ToConfig(selectedServer.Server)
+				if err != nil {
+					m.onSelectMessage = rye.SprintfError("convert to sing-box config err: %s", err.Error())
+					return
+				}
+				if err := os.MkdirAll(filepath.Dir(repo.SingboxConfigFile()), 0755); err != nil {
+					m.onSelectMessage = rye.SprintfError("create sing-box config dir err: %s", err.Error())
+					return
+				}
+				if err := os.WriteFile(repo.SingboxConfigFile(), confData, 0644); err != nil {
+					m.onSelectMessage = rye.SprintfError("write sing-box config file err: %s", err.Error())
+					return
 				}
 
 				repo.Status.ServerGroup = selectedServer.Group
 				repo.Status.ServerName = selectedServer.Server.Name
 				repo.Status.Protocl = selectedServer.Server.Protocol
-				err := repo.SaveStatus()
+				err = repo.SaveStatus()
 				if err != nil {
 					m.onSelectMessage = rye.SprintfError("save status file err: %s", err.Error())
 					return

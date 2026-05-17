@@ -4,9 +4,8 @@ import (
 	"fmt"
 
 	"github.com/larryzhao/rye"
-	"github.com/larryzhao/rye/hysteria2"
 	"github.com/larryzhao/rye/pac"
-	"github.com/larryzhao/rye/xray"
+	"github.com/larryzhao/rye/singbox"
 	"github.com/spf13/cobra"
 )
 
@@ -26,33 +25,16 @@ func NewStartCmd() *cobra.Command {
 				return fmt.Errorf("check if proxy is running err: %w", err)
 			}
 			if !ok {
-				switch repo.Status.Protocl {
-				case rye.ProtoclHysteria2:
-					runner := hysteria2.NewRunner("/opt/homebrew/bin/hysteria", repo.HysteriaConfigFile())
-					pid, err := runner.Run()
-					if err != nil {
-						return fmt.Errorf("start hysteria2 err: %w", err)
-					}
+				runner := singbox.NewRunner(repo.SingboxConfigFile(), repo.RunnerLogFile())
+				pid, err := runner.Run()
+				if err != nil {
+					return fmt.Errorf("start sing-box err: %w", err)
+				}
 
-					repo.Status.UpdateRunningProcess("proxy", pid)
-					err = repo.SaveStatus()
-					if err != nil {
-						return fmt.Errorf("save status err: %w", err)
-					}
-				case rye.ProtoclVLess, rye.ProtoclVMess, rye.ProtoclSS:
-					runner := xray.NewRunner("/opt/homebrew/bin/xray", repo.XrayConfigFile())
-					pid, err := runner.Run()
-					if err != nil {
-						return fmt.Errorf("start xray err: %w", err)
-					}
-
-					repo.Status.UpdateRunningProcess("proxy", pid)
-					err = repo.SaveStatus()
-					if err != nil {
-						return fmt.Errorf("save status err: %w", err)
-					}
-				default:
-					return fmt.Errorf("don't know how to start a %s server", repo.Status.Protocl.ShortName())
+				repo.Status.UpdateRunningProcess("proxy", pid)
+				err = repo.SaveStatus()
+				if err != nil {
+					return fmt.Errorf("save status err: %w", err)
 				}
 			}
 

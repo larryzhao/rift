@@ -53,12 +53,8 @@ func (repo *Repo) RunnerLogFile() string {
 	return path.Join(repo.Dir, "runner.log")
 }
 
-func (repo *Repo) HysteriaConfigFile() string {
-	return path.Join(repo.Dir, "hysteria2", "config.yaml")
-}
-
-func (repo *Repo) XrayConfigFile() string {
-	return path.Join(repo.Dir, "xray", "config.json")
+func (repo *Repo) SingboxConfigFile() string {
+	return path.Join(repo.Dir, "singbox", "config.json")
 }
 
 func (repo *Repo) PACFile() string {

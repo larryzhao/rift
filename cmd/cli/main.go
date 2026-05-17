@@ -20,6 +20,6 @@ func main() {
 
 	err := root.Execute()
 	if err != nil {
-		rye.PrintlnError(err.Error())
+		rye.PrintlnError("%s", err.Error())
 	}
 }
