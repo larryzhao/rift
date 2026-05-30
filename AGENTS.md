@@ -17,6 +17,7 @@ Use these commands from the repository root:
 - `go build ./cmd/cli/...`: compile CLI packages and catch build errors.
 - `go test ./...`: run all unit tests (add tests with new behavior changes).
 - `./build.sh`: produce a release binary in `dist/` with embedded `Build`/`Version` ldflags.
+- `just release <version>`: cut a tagged release (e.g. `just release 1.2.3`). Builds the binary with `Build`/`Version` ldflags, packages `dist/rye-<version>-<os>-<arch>.tar.gz`, then runs `gh release create`/`gh release upload`. Requires a clean working tree on `main`; `os`/`arch` default to `darwin`/`amd64` in the `justfile`.
 
 For quick iteration, run `go test ./... && go build ./cmd/cli/...` before opening a PR.
 
