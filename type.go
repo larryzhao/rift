@@ -101,7 +101,3 @@ const (
 	CtxKeyRepo CtxKey = iota + 1
 )
 
-type Runnable interface {
-	Run() (int, error)
-	ToConfig(server *Server) ([]byte, error)
-}
