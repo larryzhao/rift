@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"syscall"
@@ -160,16 +161,31 @@ func (status *Status) Load(filepath string) error {
 	return nil
 }
 
-func (status *Status) Save(filepath string) error {
+func (status *Status) Save(path string) error {
 	bb, err := json.Marshal(status)
 	if err != nil {
 		return err
 	}
 
-	err = os.WriteFile(filepath, bb, 0644)
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, ".status-*.json.tmp")
 	if err != nil {
 		return err
 	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
 
-	return nil
+	if _, err := tmp.Write(bb); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(0600); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+
+	return os.Rename(tmpName, path)
 }
