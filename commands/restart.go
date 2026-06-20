@@ -6,9 +6,9 @@ import (
 
 // Comand Start
 //
-// `rye restart`
+// `rift restart`
 //
-// stop rye and then start rye
+// stop rift and then start rift
 func NewRestartCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "restart",

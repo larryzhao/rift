@@ -3,22 +3,22 @@ package commands
 import (
 	"fmt"
 
-	"github.com/larryzhao/rye"
-	"github.com/larryzhao/rye/pac"
-	"github.com/larryzhao/rye/singbox"
+	"github.com/larryzhao/rift"
+	"github.com/larryzhao/rift/pac"
+	"github.com/larryzhao/rift/singbox"
 	"github.com/spf13/cobra"
 )
 
 // Comand Start
 //
-// `rye start`
+// `rift start`
 //
-// start rye
+// start rift
 func NewStartCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "start",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			repo, _ := cmd.Context().Value(rye.CtxKeyRepo).(*rye.Repo)
+			repo, _ := cmd.Context().Value(rift.CtxKeyRepo).(*rift.Repo)
 
 			ok, err := repo.Status.IsProxyRunning()
 			if err != nil {
@@ -46,18 +46,18 @@ func NewStartCmd() *cobra.Command {
 				runner := pac.NewRunner()
 				pid, err := runner.Run()
 				if err != nil {
-					rye.PrintlnError("start pac err: %s", err.Error())
+					rift.PrintlnError("start pac err: %s", err.Error())
 					return err
 				}
 				repo.Status.UpdateRunningProcess("pac", pid)
 				err = repo.SaveStatus()
 				if err != nil {
-					rye.PrintlnError("update status err: %s", err.Error())
+					rift.PrintlnError("update status err: %s", err.Error())
 					return err
 				}
 			}
 
-			rye.PrintlnInfo("started")
+			rift.PrintlnInfo("started")
 			return nil
 		},
 	}

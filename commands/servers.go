@@ -11,8 +11,8 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/larryzhao/rye"
-	"github.com/larryzhao/rye/singbox"
+	"github.com/larryzhao/rift"
+	"github.com/larryzhao/rift/singbox"
 	"github.com/spf13/cobra"
 )
 
@@ -165,14 +165,14 @@ func (m *model) renderTabs() string {
 
 // Comand Servers
 //
-// `rye servers`
+// `rift servers`
 //
 // list all the servers
 func NewServersCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "servers",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			repo, _ := cmd.Context().Value(rye.CtxKeyRepo).(*rye.Repo)
+			repo, _ := cmd.Context().Value(rift.CtxKeyRepo).(*rift.Repo)
 
 			groupNames := make([]string, 0)
 			groupItems := make(map[string][]list.Item)
@@ -217,15 +217,15 @@ func NewServersCmd() *cobra.Command {
 				runner := singbox.NewRunner(repo.SingboxConfigFile(), repo.RunnerLogFile())
 				confData, err := runner.ToConfig(selectedServer.Server)
 				if err != nil {
-					m.onSelectMessage = rye.SprintfError("convert to sing-box config err: %s", err.Error())
+					m.onSelectMessage = rift.SprintfError("convert to sing-box config err: %s", err.Error())
 					return
 				}
 				if err := os.MkdirAll(filepath.Dir(repo.SingboxConfigFile()), 0755); err != nil {
-					m.onSelectMessage = rye.SprintfError("create sing-box config dir err: %s", err.Error())
+					m.onSelectMessage = rift.SprintfError("create sing-box config dir err: %s", err.Error())
 					return
 				}
 				if err := os.WriteFile(repo.SingboxConfigFile(), confData, 0644); err != nil {
-					m.onSelectMessage = rye.SprintfError("write sing-box config file err: %s", err.Error())
+					m.onSelectMessage = rift.SprintfError("write sing-box config file err: %s", err.Error())
 					return
 				}
 
@@ -234,43 +234,43 @@ func NewServersCmd() *cobra.Command {
 				repo.Status.Protocl = selectedServer.Server.Protocol
 				err = repo.SaveStatus()
 				if err != nil {
-					m.onSelectMessage = rye.SprintfError("save status file err: %s", err.Error())
+					m.onSelectMessage = rift.SprintfError("save status file err: %s", err.Error())
 					return
 				}
 
 				ok, err := repo.Status.IsProxyRunning()
 				if err != nil {
-					m.onSelectMessage = rye.SprintfError("check if proxy is running err: %s", err.Error())
+					m.onSelectMessage = rift.SprintfError("check if proxy is running err: %s", err.Error())
 					return
 				}
 				if ok {
 					pid := repo.Status.PIDByKind("proxy")
 
-					rye.SprintfVerbose("stopping running proxy with pid: %d", pid)
+					rift.SprintfVerbose("stopping running proxy with pid: %d", pid)
 
-					err = rye.Stop(pid)
+					err = rift.Stop(pid)
 					if err != nil {
-						m.onSelectMessage = rye.SprintfError("stop proxy %d err: %s", pid, err.Error())
+						m.onSelectMessage = rift.SprintfError("stop proxy %d err: %s", pid, err.Error())
 						return
 					}
 
-					rye.SprintfVerbose("starting proxy again")
+					rift.SprintfVerbose("starting proxy again")
 					pid, err = runner.Run()
 					if err != nil {
-						m.onSelectMessage = rye.SprintfError("start proxy %s err: %s", selectedServer.Server.Protocol.String(), err.Error())
+						m.onSelectMessage = rift.SprintfError("start proxy %s err: %s", selectedServer.Server.Protocol.String(), err.Error())
 						return
 					}
-					rye.SprintfVerbose("proxy started with pid: %d", pid)
+					rift.SprintfVerbose("proxy started with pid: %d", pid)
 
 					repo.Status.UpdateRunningProcess("proxy", pid)
 					err := repo.SaveStatus()
 					if err != nil {
-						m.onSelectMessage = rye.SprintfError("save status file err: %s", err.Error())
+						m.onSelectMessage = rift.SprintfError("save status file err: %s", err.Error())
 						return
 					}
 					return
 				}
-				m.onSelectMessage = rye.SprintfInfo("switch to server: %s", selectedServer.Server.Name)
+				m.onSelectMessage = rift.SprintfInfo("switch to server: %s", selectedServer.Server.Name)
 			}
 
 			if _, err := tea.NewProgram(&m).Run(); err != nil {

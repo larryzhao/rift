@@ -8,14 +8,14 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/larryzhao/rye"
+	"github.com/larryzhao/rift"
 	box "github.com/sagernet/sing-box"
 	"github.com/sagernet/sing-box/include"
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing/common/json"
 )
 
-// Runner spawns the current rye binary as a detached `run proxy` child so the
+// Runner spawns the current rift binary as a detached `run proxy` child so the
 // sing-box library runs in its own process and can still be tracked via PID.
 type Runner struct {
 	Config  string
@@ -29,7 +29,7 @@ func NewRunner(config string, logFile string) *Runner {
 func (r *Runner) Run() (int, error) {
 	bin, err := os.Executable()
 	if err != nil {
-		return 0, fmt.Errorf("locate rye executable err: %w", err)
+		return 0, fmt.Errorf("locate rift executable err: %w", err)
 	}
 
 	cmd := exec.Command(bin, "run", "proxy")
@@ -55,7 +55,7 @@ func (r *Runner) Run() (int, error) {
 	return pid, nil
 }
 
-func (r *Runner) ToConfig(server *rye.Server) ([]byte, error) {
+func (r *Runner) ToConfig(server *rift.Server) ([]byte, error) {
 	return BuildConfig(server)
 }
 

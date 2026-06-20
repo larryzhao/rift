@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/larryzhao/rye"
-	"github.com/larryzhao/rye/pac"
+	"github.com/larryzhao/rift"
+	"github.com/larryzhao/rift/pac"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +15,7 @@ func NewPACCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "pac",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			repo, _ := cmd.Context().Value(rye.CtxKeyRepo).(*rye.Repo)
+			repo, _ := cmd.Context().Value(rift.CtxKeyRepo).(*rift.Repo)
 
 			server := pac.NewServer(60061, repo.PACFile())
 			go server.Run()

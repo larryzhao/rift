@@ -3,8 +3,8 @@ package commands
 import (
 	"fmt"
 
-	"github.com/larryzhao/rye"
-	"github.com/larryzhao/rye/pac"
+	"github.com/larryzhao/rift"
+	"github.com/larryzhao/rift/pac"
 	"github.com/spf13/cobra"
 )
 
@@ -12,13 +12,13 @@ func NewStopCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "stop",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			repo, _ := cmd.Context().Value(rye.CtxKeyRepo).(*rye.Repo)
+			repo, _ := cmd.Context().Value(rift.CtxKeyRepo).(*rift.Repo)
 
 			// stop runners
 			for _, proc := range repo.Status.RunningProcesses {
-				err := rye.Stop(proc.PID)
+				err := rift.Stop(proc.PID)
 				if err != nil {
-					rye.PrintlnError("stop %s process %d err: %s", proc.Kind, proc.PID, err.Error())
+					rift.PrintlnError("stop %s process %d err: %s", proc.Kind, proc.PID, err.Error())
 				}
 			}
 
@@ -28,7 +28,7 @@ func NewStopCmd() *cobra.Command {
 				return fmt.Errorf("turn off system proxy err: %w", err)
 			}
 
-			rye.PrintlnInfo("stopped")
+			rift.PrintlnInfo("stopped")
 			return nil
 		},
 	}

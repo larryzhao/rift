@@ -1,4 +1,4 @@
-module github.com/larryzhao/rye
+module github.com/larryzhao/rift
 
 go 1.24.7
 
