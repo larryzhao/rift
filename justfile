@@ -34,15 +34,15 @@ release version:
         exit 1
     fi
 
-    dist_name="rye-${version}-{{ os }}-{{ arch }}"
+    dist_name="rift-${version}-{{ os }}-{{ arch }}"
     dist_dir="./dist/${dist_name}"
 
     # build binary
     mkdir -p "$dist_dir"
     build="$(git rev-parse HEAD)"
     GOOS="{{ os }}" GOARCH="{{ arch }}" go build \
-        -o "$dist_dir/rye" \
-        -ldflags "-s -w -X github.com/larryzhao/rye.Build=${build} -X github.com/larryzhao/rye.Version=${version}" \
+        -o "$dist_dir/rift" \
+        -ldflags "-s -w -X github.com/larryzhao/rift.Build=${build} -X github.com/larryzhao/rift.Version=${version}" \
         ./cmd/cli/...
     touch "$dist_dir/LICENSE"
     touch "$dist_dir/README.md"

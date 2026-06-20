@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/larryzhao/rye"
+	"github.com/larryzhao/rift"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +30,7 @@ func newSubscriptionsUpdateCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "update",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			repo, _ := cmd.Context().Value(rye.CtxKeyRepo).(*rye.Repo)
+			repo, _ := cmd.Context().Value(rift.CtxKeyRepo).(*rift.Repo)
 
 			updatedSubs, err := repo.UpdateSubscriptions()
 			if err != nil {
@@ -41,7 +41,7 @@ func newSubscriptionsUpdateCmd() *cobra.Command {
 			for _, sub := range updatedSubs {
 				updatedSubNames = append(updatedSubNames, sub.Name)
 			}
-			rye.PrintlnInfo("%s updated", strings.Join(updatedSubNames, ","))
+			rift.PrintlnInfo("%s updated", strings.Join(updatedSubNames, ","))
 
 			return nil
 		},
@@ -52,7 +52,7 @@ func newSubscriptionsAddCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "add",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			repo, _ := cmd.Context().Value(rye.CtxKeyRepo).(*rye.Repo)
+			repo, _ := cmd.Context().Value(rift.CtxKeyRepo).(*rift.Repo)
 
 			name := args[0]
 			url := args[1]
@@ -65,7 +65,7 @@ func newSubscriptionsAddCmd() *cobra.Command {
 				return fmt.Errorf("you need to provide a url for the subscription")
 			}
 
-			sub := &rye.Subscription{
+			sub := &rift.Subscription{
 				Name:       name,
 				URL:        url,
 				AddedAt:    time.Now(),
@@ -77,7 +77,7 @@ func newSubscriptionsAddCmd() *cobra.Command {
 				return err
 			}
 
-			rye.PrintlnInfo("Subscription %s added.", name)
+			rift.PrintlnInfo("Subscription %s added.", name)
 			return nil
 		},
 	}
@@ -87,7 +87,7 @@ func newSubscriptionsAutoUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "autoupdate",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			repo, _ := cmd.Context().Value(rye.CtxKeyRepo).(*rye.Repo)
+			repo, _ := cmd.Context().Value(rift.CtxKeyRepo).(*rift.Repo)
 
 			interval, err := cmd.Flags().GetDuration("interval")
 			if err != nil {
@@ -113,7 +113,7 @@ func newSubscriptionsAutoUpdateCmd() *cobra.Command {
 					return fmt.Errorf("check running autoupdate daemon err: %w", err)
 				}
 				if running {
-					rye.PrintlnInfo("autoupdate daemon already running with pid %d", pid)
+					rift.PrintlnInfo("autoupdate daemon already running with pid %d", pid)
 					return nil
 				}
 			}
@@ -122,7 +122,7 @@ func newSubscriptionsAutoUpdateCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("resolve executable err: %w", err)
 			}
-			pid, err = rye.Run(executable, []string{
+			pid, err = rift.Run(executable, []string{
 				"subscriptions", "autoupdate", "--daemon", fmt.Sprintf("--interval=%s", interval),
 			})
 			if err != nil {
@@ -134,8 +134,8 @@ func newSubscriptionsAutoUpdateCmd() *cobra.Command {
 				return fmt.Errorf("save status err: %w", err)
 			}
 
-			rye.PrintlnInfo("autoupdate daemon started, pid=%d", pid)
-			rye.PrintlnInfo("autoupdate log file: %s", repo.AutoUpdateLogFile())
+			rift.PrintlnInfo("autoupdate daemon started, pid=%d", pid)
+			rift.PrintlnInfo("autoupdate log file: %s", repo.AutoUpdateLogFile())
 			return nil
 		},
 	}
@@ -149,7 +149,7 @@ func newSubscriptionsAutoUpdateCmd() *cobra.Command {
 	return cmd
 }
 
-func runSubscriptionsAutoUpdateDaemon(repo *rye.Repo, interval time.Duration) error {
+func runSubscriptionsAutoUpdateDaemon(repo *rift.Repo, interval time.Duration) error {
 	err := ensureAutoUpdateStatus(repo)
 	if err != nil {
 		return err
@@ -207,7 +207,7 @@ func runSubscriptionsAutoUpdateDaemon(repo *rye.Repo, interval time.Duration) er
 	}
 }
 
-func ensureAutoUpdateStatus(repo *rye.Repo) error {
+func ensureAutoUpdateStatus(repo *rift.Repo) error {
 	pid := repo.Status.PIDByKind("autoupdate")
 	currentPID := os.Getpid()
 	if pid > 0 {
@@ -228,7 +228,7 @@ func ensureAutoUpdateStatus(repo *rye.Repo) error {
 	return nil
 }
 
-func appendAutoUpdateLog(repo *rye.Repo, format string, args ...interface{}) error {
+func appendAutoUpdateLog(repo *rift.Repo, format string, args ...interface{}) error {
 	logFile := repo.AutoUpdateLogFile()
 	err := os.MkdirAll(path.Dir(logFile), 0755)
 	if err != nil {

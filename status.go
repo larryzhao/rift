@@ -1,4 +1,4 @@
-package rye
+package rift
 
 import (
 	"encoding/json"
@@ -119,7 +119,7 @@ func (status *Status) IsProxySet() (bool, error) {
 		}
 	}
 
-	// check if proxy is from rye.
+	// check if proxy is from rift.
 	reg = regexp.MustCompile(`URL: (.*)`)
 	matches = reg.FindStringSubmatch(string(bb))
 	if len(matches) > 0 && matches[1] == "http://127.0.0.1:60061/pac/proxy.js" {

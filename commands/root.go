@@ -3,36 +3,36 @@ package commands
 import (
 	"context"
 
-	"github.com/larryzhao/rye"
+	"github.com/larryzhao/rift"
 	"github.com/spf13/cobra"
 )
 
-// rye start
-// rye stop
+// rift start
+// rift stop
 //     stop connection
-// rye subscriptions
-// rye connect <url>
+// rift subscriptions
+// rift connect <url>
 
 // NewRootCmd
 func NewRootCmd() *cobra.Command {
 	cmd := cobra.Command{
-		Use: "rye",
+		Use: "rift",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// set verbose by --verbose flag
 			v, err := cmd.Flags().GetBool("verbose")
 			if err != nil {
 				return err
 			}
-			rye.PrintVerbosly = v
+			rift.PrintVerbosly = v
 
 			// load repo and set context
-			r, err := rye.LoadRepo()
+			r, err := rift.LoadRepo()
 			if err != nil {
-				rye.PrintlnError("load repo err: %s", err.Error())
+				rift.PrintlnError("load repo err: %s", err.Error())
 				return err
 			}
 
-			ctx := context.WithValue(cmd.Context(), rye.CtxKeyRepo, r)
+			ctx := context.WithValue(cmd.Context(), rift.CtxKeyRepo, r)
 			cmd.SetContext(ctx)
 
 			return nil

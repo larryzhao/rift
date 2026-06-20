@@ -3,7 +3,7 @@ package pac
 import (
 	"os/exec"
 
-	"github.com/larryzhao/rye"
+	"github.com/larryzhao/rift"
 )
 
 type Runner struct {
@@ -14,7 +14,7 @@ func NewRunner() *Runner {
 }
 
 func (runner *Runner) Run() (int, error) {
-	return rye.Run("/usr/local/bin/rye", []string{"pac"})
+	return rift.Run("/usr/local/bin/rift", []string{"pac"})
 }
 
 func SetSystemPAC(pacURL string) error {

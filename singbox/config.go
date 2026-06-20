@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/larryzhao/rye"
+	"github.com/larryzhao/rift"
 )
 
 const (
@@ -16,7 +16,7 @@ const (
 	DirectOutbound = "direct"
 )
 
-func BuildConfig(server *rye.Server) ([]byte, error) {
+func BuildConfig(server *rift.Server) ([]byte, error) {
 	outbound, err := buildOutbound(server)
 	if err != nil {
 		return nil, err
@@ -53,24 +53,24 @@ func BuildConfig(server *rye.Server) ([]byte, error) {
 	return json.MarshalIndent(conf, "", "  ")
 }
 
-func buildOutbound(server *rye.Server) (map[string]any, error) {
+func buildOutbound(server *rift.Server) (map[string]any, error) {
 	switch server.Protocol {
-	case rye.ProtoclVLess:
+	case rift.ProtoclVLess:
 		return buildVlessOutbound(server), nil
-	case rye.ProtoclVMess:
+	case rift.ProtoclVMess:
 		return buildVMessOutbound(server)
-	case rye.ProtoclSS:
+	case rift.ProtoclSS:
 		return buildShadowsocksOutbound(server), nil
-	case rye.ProtoclHysteria2:
+	case rift.ProtoclHysteria2:
 		return buildHysteria2Outbound(server), nil
-	case rye.ProtoclTrojan:
+	case rift.ProtoclTrojan:
 		return buildTrojanOutbound(server), nil
 	default:
 		return nil, fmt.Errorf("unknown protocol %s", server.Protocol.String())
 	}
 }
 
-func baseOutbound(typ string, server *rye.Server) map[string]any {
+func baseOutbound(typ string, server *rift.Server) map[string]any {
 	return map[string]any{
 		"type":        typ,
 		"tag":         ProxyOutbound,
@@ -79,7 +79,7 @@ func baseOutbound(typ string, server *rye.Server) map[string]any {
 	}
 }
 
-func buildVlessOutbound(server *rye.Server) map[string]any {
+func buildVlessOutbound(server *rift.Server) map[string]any {
 	out := baseOutbound("vless", server)
 	out["uuid"] = server.User
 	if server.Flow != "" {
@@ -94,7 +94,7 @@ func buildVlessOutbound(server *rye.Server) map[string]any {
 	return out
 }
 
-func buildVMessOutbound(server *rye.Server) (map[string]any, error) {
+func buildVMessOutbound(server *rift.Server) (map[string]any, error) {
 	out := baseOutbound("vmess", server)
 	out["uuid"] = server.User
 
@@ -123,14 +123,14 @@ func buildVMessOutbound(server *rye.Server) (map[string]any, error) {
 	return out, nil
 }
 
-func buildShadowsocksOutbound(server *rye.Server) map[string]any {
+func buildShadowsocksOutbound(server *rift.Server) map[string]any {
 	out := baseOutbound("shadowsocks", server)
 	out["method"] = server.Encryption
 	out["password"] = server.User
 	return out
 }
 
-func buildHysteria2Outbound(server *rye.Server) map[string]any {
+func buildHysteria2Outbound(server *rift.Server) map[string]any {
 	out := baseOutbound("hysteria2", server)
 	out["password"] = server.User
 	tls := map[string]any{
@@ -144,7 +144,7 @@ func buildHysteria2Outbound(server *rye.Server) map[string]any {
 	return out
 }
 
-func buildTrojanOutbound(server *rye.Server) map[string]any {
+func buildTrojanOutbound(server *rift.Server) map[string]any {
 	out := baseOutbound("trojan", server)
 	out["password"] = server.User
 	if tls := buildTLS(server); tls != nil {
@@ -156,7 +156,7 @@ func buildTrojanOutbound(server *rye.Server) map[string]any {
 	return out
 }
 
-func buildTLS(server *rye.Server) map[string]any {
+func buildTLS(server *rift.Server) map[string]any {
 	switch server.Security {
 	case "tls":
 		tls := map[string]any{
@@ -203,9 +203,9 @@ func buildTLS(server *rye.Server) map[string]any {
 	}
 }
 
-func buildTransport(server *rye.Server) map[string]any {
+func buildTransport(server *rift.Server) map[string]any {
 	switch server.TransportProtocol {
-	case rye.TransportProtocolWS:
+	case rift.TransportProtocolWS:
 		tr := map[string]any{
 			"type": "ws",
 		}

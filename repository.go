@@ -1,4 +1,4 @@
-package rye
+package rift
 
 import (
 	"context"
@@ -227,7 +227,7 @@ func LoadRepo() (*Repo, error) {
 		if err != nil {
 			return nil, fmt.Errorf("get user's home directory err: %s", err.Error())
 		}
-		repo.Dir = path.Join(u.HomeDir, ".rye")
+		repo.Dir = path.Join(u.HomeDir, ".rift")
 	}
 
 	// load xray config

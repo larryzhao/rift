@@ -1,4 +1,4 @@
-package rye
+package rift
 
 import (
 	"encoding/base64"

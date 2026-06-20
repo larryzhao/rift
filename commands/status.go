@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/larryzhao/rye"
+	"github.com/larryzhao/rift"
 	"github.com/spf13/cobra"
 )
 
@@ -42,7 +42,7 @@ func NewStatusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "status",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			repo, _ := cmd.Context().Value(rye.CtxKeyRepo).(*rye.Repo)
+			repo, _ := cmd.Context().Value(rift.CtxKeyRepo).(*rift.Repo)
 			fmt.Print(renderStatus(repo))
 			return nil
 		},
@@ -51,18 +51,18 @@ func NewStatusCmd() *cobra.Command {
 	}
 }
 
-func renderStatus(repo *rye.Repo) string {
+func renderStatus(repo *rift.Repo) string {
 	return renderStatusPanel("Runtime", runtimeStatusLines(repo)) + "\n"
 }
 
-func runtimeStatusLines(repo *rye.Repo) []statusLine {
+func runtimeStatusLines(repo *rift.Repo) []statusLine {
 	proxyOK, proxyErr := repo.Status.IsProxyRunning()
 	pacOK, pacErr := repo.Status.IsPACServerRunning()
 	proxySetOK, proxySetErr := repo.Status.IsProxySet()
 	autoUpdateOK, autoUpdateErr := repo.Status.IsAutoUpdateRunning()
 
 	protocol := "unknown"
-	if repo.Status.Protocl != rye.ProtoclUnknown && repo.Status.Protocl != "" {
+	if repo.Status.Protocl != rift.ProtoclUnknown && repo.Status.Protocl != "" {
 		protocol = repo.Status.Protocl.String()
 	}
 
@@ -102,7 +102,7 @@ func runtimeStatusLines(repo *rye.Repo) []statusLine {
 	return lines
 }
 
-func subscriptionStatusLines(repo *rye.Repo) []statusLine {
+func subscriptionStatusLines(repo *rift.Repo) []statusLine {
 	if len(repo.Settings.Subscriptions) == 0 {
 		return []statusLine{{
 			Label:  "  Subscriptions",
