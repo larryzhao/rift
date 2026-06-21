@@ -1,6 +1,8 @@
 package pac
 
 import (
+	"fmt"
+	"os"
 	"os/exec"
 
 	"github.com/larryzhao/rift"
@@ -14,7 +16,12 @@ func NewRunner() *Runner {
 }
 
 func (runner *Runner) Run() (int, error) {
-	return rift.Run("/usr/local/bin/rift", []string{"pac"})
+	bin, err := os.Executable()
+	if err != nil {
+		return 0, fmt.Errorf("locate rift executable err: %w", err)
+	}
+
+	return rift.Run(bin, []string{"pac"})
 }
 
 func SetSystemPAC(pacURL string) error {
