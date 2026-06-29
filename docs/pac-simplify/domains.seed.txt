@@ -1,0 +1,42 @@
+# domains.txt 初始内容 —— 个人域名列表,覆盖 gfwlist
+#
+# 规则:
+#   domain        强制走代理(即使 gfwlist 判直连)
+#   !domain       强制直连(即使 gfwlist 判代理)
+#   # 开头 / 空行  忽略
+# 主域名即覆盖所有子域(claude.ai 覆盖 api.claude.ai)。
+#
+# 下面 30 个是从旧 pac.js 提取、且 gfwlist 当前未覆盖的域名。
+# 已被 gfwlist 覆盖的(anthropic.com / claude.ai / github.com / openai.com 等)
+# 已剔除,由 rift pac update 同步的 gfwlist 自动兜底。
+
+algoexpert.io
+battle.net
+bing.com
+blizz.ly
+challengers.cloudflare.com
+cms-twdigitalassets.com
+digitaloceanspaces.com
+dribbble.com
+drop.com
+fansly.com
+fastly.net
+futurefonts.xyz
+hongkongdoll.tv
+imgix.net
+maven.org
+microsoft.com
+mxplayer.in
+npmjs.com
+open.feishu.cn
+openaiapi-site.azureedge.net
+pikpak.com
+planetscale.com
+pub.dev
+sentry-cdn.com
+sentry.io
+stackoverflow.com
+steampowered.com
+strip.com
+tshl.work
+unity3d.com
