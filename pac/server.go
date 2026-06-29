@@ -4,16 +4,16 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 )
 
 type Server struct {
-	Port    int
-	PACFile string
+	Port        int
+	DomainsFile string
+	GFWListFile string
 }
 
-func NewServer(port int, pacFile string) *Server {
-	return &Server{Port: port, PACFile: pacFile}
+func NewServer(port int, domainsFile, gfwlistFile string) *Server {
+	return &Server{Port: port, DomainsFile: domainsFile, GFWListFile: gfwlistFile}
 }
 
 func (server *Server) Run() error {
@@ -22,15 +22,16 @@ func (server *Server) Run() error {
 	}
 
 	http.HandleFunc("/pac/proxy.js", func(w http.ResponseWriter, r *http.Request) {
-		bb, err := os.ReadFile(server.PACFile)
+		js, err := GeneratePAC(server.DomainsFile, server.GFWListFile)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("read pac file err: " + err.Error()))
+			w.Write([]byte("generate pac err: " + err.Error()))
 			return
 		}
 
+		w.Header().Set("Content-Type", "application/x-ns-proxy-autoconfig")
 		w.WriteHeader(http.StatusOK)
-		w.Write(bb)
+		w.Write([]byte(js))
 	})
 
 	defer s.Shutdown(context.Background())
