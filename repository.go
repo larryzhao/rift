@@ -61,6 +61,14 @@ func (repo *Repo) PACFile() string {
 	return path.Join(repo.Dir, "pac", "pac.js")
 }
 
+func (repo *Repo) PACDomainsFile() string {
+	return path.Join(repo.Dir, "pac", "domains.txt")
+}
+
+func (repo *Repo) PACGFWListFile() string {
+	return path.Join(repo.Dir, "pac", "gfwlist.txt")
+}
+
 func (repo *Repo) AutoUpdateLogFile() string {
 	return path.Join(repo.Dir, "autoupdate.log")
 }

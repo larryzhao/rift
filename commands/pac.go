@@ -17,7 +17,7 @@ func NewPACCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			repo, _ := cmd.Context().Value(rift.CtxKeyRepo).(*rift.Repo)
 
-			server := pac.NewServer(60061, repo.PACFile())
+			server := pac.NewServer(60061, repo.PACDomainsFile(), repo.PACGFWListFile())
 			go server.Run()
 			// TODO: remove hard code
 			err := pac.SetSystemPAC("http://127.0.0.1:60061/pac/proxy.js")
@@ -34,5 +34,25 @@ func NewPACCmd() *cobra.Command {
 		},
 	}
 
+	cmd.AddCommand(newPACUpdateCmd())
+
 	return cmd
+}
+
+func newPACUpdateCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "update",
+		Short: "Download the latest gfwlist (refreshed ~every 6h upstream)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			repo, _ := cmd.Context().Value(rift.CtxKeyRepo).(*rift.Repo)
+
+			out := repo.PACGFWListFile()
+			n, err := pac.SyncGFWList(out)
+			if err != nil {
+				return fmt.Errorf("update gfwlist err: %w", err)
+			}
+			fmt.Printf("updated %s (%d bytes)\n", out, n)
+			return nil
+		},
+	}
 }
