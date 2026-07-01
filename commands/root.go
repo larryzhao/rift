@@ -46,6 +46,7 @@ func NewRootCmd() *cobra.Command {
 	cmd.AddCommand(NewStatusCmd())
 	cmd.AddCommand(NewRunCmd())
 	cmd.AddCommand(NewSubscriptionsCmd())
+	cmd.AddCommand(NewAutoUpdateCmd())
 	cmd.AddCommand(NewServersCmd())
 	cmd.AddCommand(NewPACCmd())
 	cmd.AddCommand(NewDomainCmd())

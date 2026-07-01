@@ -98,12 +98,37 @@ func runtimeStatusLines(repo *rift.Repo) []statusLine {
 		},
 	}
 
+	lines = append(lines, gfwlistStatusLine(repo))
 	lines = append(lines, subscriptionStatusLines(repo)...)
 	return lines
 }
 
+func gfwlistStatusLine(repo *rift.Repo) statusLine {
+	st := repo.Status.GFWList
+	line := statusLine{
+		Label: "  gfwlist",
+		Value: "unknown",
+		OK:    false,
+	}
+
+	if st.LastSuccessAt > 0 {
+		line.Value = "updated"
+		line.Detail = fmt.Sprintf("last success %s", formatStatusTime(st.LastSuccessAt))
+		line.OK = true
+	}
+
+	if st.LastError != "" {
+		line.Value = "error"
+		line.Detail = fmt.Sprintf("last attempt %s: %s", formatStatusTime(st.LastAttemptAt), st.LastError)
+		line.OK = false
+	}
+
+	return line
+}
+
 func subscriptionStatusLines(repo *rift.Repo) []statusLine {
-	if len(repo.Settings.Subscriptions) == 0 {
+	subs := repo.Settings.SubscriptionItems()
+	if len(subs) == 0 {
 		return []statusLine{{
 			Label:  "  Subscriptions",
 			Value:  "none",
@@ -112,8 +137,8 @@ func subscriptionStatusLines(repo *rift.Repo) []statusLine {
 		}}
 	}
 
-	lines := make([]statusLine, 0, len(repo.Settings.Subscriptions))
-	for _, sub := range repo.Settings.Subscriptions {
+	lines := make([]statusLine, 0, len(subs))
+	for _, sub := range subs {
 		subStatus, ok := repo.Status.SubscriptionStatuses[sub.Name]
 		if !ok {
 			lines = append(lines, statusLine{

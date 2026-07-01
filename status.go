@@ -26,6 +26,17 @@ type SubscriptionUpdateStatus struct {
 	LastError     string `json:"last_error,omitempty"`
 }
 
+// GFWListUpdateStatus tracks the state of the gfwlist auto-update. ETag is the
+// value returned by the server, replayed as If-None-Match to skip downloads;
+// SHA256 is the local content hash used to detect no-op updates.
+type GFWListUpdateStatus struct {
+	LastAttemptAt int64  `json:"last_attempt_at,omitempty"`
+	LastSuccessAt int64  `json:"last_success_at,omitempty"`
+	ETag          string `json:"etag,omitempty"`
+	SHA256        string `json:"sha256,omitempty"`
+	LastError     string `json:"last_error,omitempty"`
+}
+
 type Status struct {
 	ServerGroup          string                              `json:"server_group"`
 	ServerName           string                              `json:"server_name"`
@@ -33,6 +44,7 @@ type Status struct {
 	PACPort              int                                 `json:"pac_port"`
 	RunningProcesses     []RunningProcess                    `json:"running_processes"`
 	SubscriptionStatuses map[string]SubscriptionUpdateStatus `json:"subscription_statuses,omitempty"`
+	GFWList              GFWListUpdateStatus                 `json:"gfwlist,omitzero"`
 }
 
 func (status *Status) PIDByKind(kind string) int {
@@ -99,6 +111,18 @@ func (status *Status) UpdateSubscriptionStatus(name string, attemptAt time.Time,
 		subStatus.LastError = err.Error()
 	}
 	status.SubscriptionStatuses[name] = subStatus
+}
+
+func (status *Status) UpdateGFWListStatus(attemptAt time.Time, successAt *time.Time, etag, sha256 string, err error) {
+	status.GFWList.LastAttemptAt = attemptAt.Unix()
+	status.GFWList.ETag = etag
+	status.GFWList.SHA256 = sha256
+	if successAt != nil {
+		status.GFWList.LastSuccessAt = successAt.Unix()
+		status.GFWList.LastError = ""
+	} else if err != nil {
+		status.GFWList.LastError = err.Error()
+	}
 }
 
 func (status *Status) IsProxySet() (bool, error) {

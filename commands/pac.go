@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/larryzhao/rift"
 	"github.com/larryzhao/rift/pac"
@@ -47,11 +48,22 @@ func newPACUpdateCmd() *cobra.Command {
 			repo, _ := cmd.Context().Value(rift.CtxKeyRepo).(*rift.Repo)
 
 			out := repo.PACGFWListFile()
-			n, err := pac.SyncGFWList(out)
+			res, err := pac.SyncGFWList(out, repo.Status.GFWList.ETag, repo.Status.GFWList.SHA256)
 			if err != nil {
 				return fmt.Errorf("update gfwlist err: %w", err)
 			}
-			fmt.Printf("updated %s (%d bytes)\n", out, n)
+
+			now := time.Now()
+			repo.Status.UpdateGFWListStatus(now, &now, res.ETag, res.SHA256, nil)
+			if err := repo.SaveStatus(); err != nil {
+				return fmt.Errorf("save status err: %w", err)
+			}
+
+			if res.Changed {
+				fmt.Printf("updated %s (%d bytes)\n", out, res.Bytes)
+			} else {
+				fmt.Printf("%s already up to date\n", out)
+			}
 			return nil
 		},
 	}

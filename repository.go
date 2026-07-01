@@ -17,9 +17,92 @@ type Log struct {
 	Location string `yaml:"location"`
 }
 
+const (
+	defaultSubscriptionsInterval = 30 * time.Minute
+	defaultGFWListInterval       = 6 * time.Hour
+)
+
+// Duration is a time.Duration that (un)marshals to/from a human string such as
+// "30m" or "6h" in YAML (yaml.v3 does not handle time.Duration natively).
+type Duration time.Duration
+
+func (d Duration) Duration() time.Duration { return time.Duration(d) }
+
+func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
+	var s string
+	if err := value.Decode(&s); err != nil {
+		return err
+	}
+	if s == "" {
+		*d = 0
+		return nil
+	}
+	parsed, err := time.ParseDuration(s)
+	if err != nil {
+		return fmt.Errorf("parse interval %q: %w", s, err)
+	}
+	*d = Duration(parsed)
+	return nil
+}
+
+func (d Duration) MarshalYAML() (interface{}, error) {
+	return time.Duration(d).String(), nil
+}
+
+// AutoUpdate holds the per-feature auto-update configuration. When Skip is true
+// the feature is bypassed by the autoupdate daemon.
+type AutoUpdate struct {
+	Skip     bool     `yaml:"skip"`
+	Interval Duration `yaml:"interval"`
+}
+
+type SubscriptionsConfig struct {
+	AutoUpdate AutoUpdate      `yaml:"autoupdate"`
+	Items      []*Subscription `yaml:"items"`
+}
+
+type GFWListConfig struct {
+	AutoUpdate AutoUpdate `yaml:"autoupdate"`
+}
+
 type Settings struct {
-	Log           *Log            `yaml:"log"`
-	Subscriptions []*Subscription `yaml:"subscriptions"`
+	Log           *Log                 `yaml:"log"`
+	Subscriptions *SubscriptionsConfig `yaml:"subscriptions"`
+	GFWList       *GFWListConfig       `yaml:"gfwlist"`
+}
+
+// SubscriptionItems returns the configured subscriptions, or nil if none.
+func (s *Settings) SubscriptionItems() []*Subscription {
+	if s.Subscriptions == nil {
+		return nil
+	}
+	return s.Subscriptions.Items
+}
+
+// SubscriptionsAutoUpdate returns the subscriptions auto-update config with the
+// default interval applied when unset.
+func (s *Settings) SubscriptionsAutoUpdate() AutoUpdate {
+	au := AutoUpdate{}
+	if s.Subscriptions != nil {
+		au = s.Subscriptions.AutoUpdate
+	}
+	if au.Interval <= 0 {
+		au.Interval = Duration(defaultSubscriptionsInterval)
+	}
+	return au
+}
+
+// GFWListAutoUpdate returns the gfwlist auto-update config with the default
+// interval applied when unset.
+func (s *Settings) GFWListAutoUpdate() AutoUpdate {
+	au := AutoUpdate{}
+	if s.GFWList != nil {
+		au = s.GFWList.AutoUpdate
+	}
+	if au.Interval <= 0 {
+		au.Interval = Duration(defaultGFWListInterval)
+	}
+	return au
 }
 
 type RepoServer struct {
@@ -73,6 +156,26 @@ func (repo *Repo) AutoUpdateLogFile() string {
 	return path.Join(repo.Dir, "autoupdate.log")
 }
 
+// AppendAutoUpdateLog appends a single timestamped line to the autoupdate log.
+func (repo *Repo) AppendAutoUpdateLog(format string, args ...interface{}) error {
+	logFile := repo.AutoUpdateLogFile()
+	if err := os.MkdirAll(path.Dir(logFile), 0755); err != nil {
+		return fmt.Errorf("create autoupdate log directory err: %w", err)
+	}
+
+	file, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("open autoupdate log file err: %w", err)
+	}
+	defer file.Close()
+
+	line := fmt.Sprintf("%s %s\n", time.Now().Format(time.RFC3339), fmt.Sprintf(format, args...))
+	if _, err := file.WriteString(line); err != nil {
+		return fmt.Errorf("write autoupdate log file err: %w", err)
+	}
+	return nil
+}
+
 // func (repo *Repo) RunnerPIDFile() string {
 // 	return path.Join(repo.Dir, "runner.pid")
 // }
@@ -82,13 +185,16 @@ func (repo *Repo) StatusFile() string {
 }
 
 func (repo *Repo) AddSubscription(subscription *Subscription) error {
-	for _, sub := range repo.Settings.Subscriptions {
+	if repo.Settings.Subscriptions == nil {
+		repo.Settings.Subscriptions = &SubscriptionsConfig{}
+	}
+	for _, sub := range repo.Settings.Subscriptions.Items {
 		if sub.Name == subscription.Name {
 			return fmt.Errorf("subscription should have a distinct name")
 		}
 	}
 
-	repo.Settings.Subscriptions = append(repo.Settings.Subscriptions, subscription)
+	repo.Settings.Subscriptions.Items = append(repo.Settings.Subscriptions.Items, subscription)
 
 	bb, err := yaml.Marshal(repo.Settings)
 	if err != nil {
@@ -119,7 +225,7 @@ func (repo *Repo) UpdateSubscriptions() ([]*Subscription, error) {
 
 func (repo *Repo) UpdateSubscriptionsWithStats() ([]SubscriptionUpdateStat, error) {
 	var stats []SubscriptionUpdateStat
-	for _, sub := range repo.Settings.Subscriptions {
+	for _, sub := range repo.Settings.SubscriptionItems() {
 		oldServers := repo.ServersByGroup(sub.Name)
 		ctx := context.Background()
 		servers, err := sub.Fetch(ctx)
